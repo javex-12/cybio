@@ -2,6 +2,7 @@ export interface Question {
   id: number;
   category: string;
   question: string;
+  options?: string[]; // Optional for now, will be generated if missing
   answer: string;
   explanation: string;
   difficulty: 'Easy' | 'Medium' | 'Hard';

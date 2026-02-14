@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'BioMaster Pro',
-        short_name: 'BioMaster',
+        name: 'Biobite Pro',
+        short_name: 'Biobite',
         description: 'Professional Biology Quiz for Competitions',
         theme_color: '#2563eb',
         icons: [
