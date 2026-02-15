@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -6,8 +6,7 @@ import {
   User, 
   X,
   ChevronRight,
-  ShieldCheck,
-  Brain
+  ShieldCheck
 } from 'lucide-react';
 
 import Logo from './Logo';

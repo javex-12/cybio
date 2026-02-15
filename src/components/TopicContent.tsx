@@ -4,15 +4,10 @@ import {
   ChevronRight, 
   ChevronLeft,
   RefreshCw, 
-  Target, 
   GraduationCap,
-  ArrowRight,
   Zap,
   Info,
-  CheckCircle2,
-  XCircle,
-  HelpCircle,
-  Brain
+  HelpCircle
 } from 'lucide-react';
 
 // Atomic Lesson Imports

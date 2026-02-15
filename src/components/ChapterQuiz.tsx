@@ -1,17 +1,11 @@
 import React, { useState } from 'react';
 import { chapterQuizzes } from '../data/quizzes';
 import { 
-  CheckCircle2, 
-  XCircle, 
   ChevronRight, 
-  RefreshCw, 
   Trophy, 
   ArrowLeft, 
-  Info, 
-  AlertCircle,
-  Zap,
   Target,
-  Brain
+  X
 } from 'lucide-react';
 
 interface ChapterQuizProps {

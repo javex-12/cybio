@@ -7,11 +7,8 @@ import {
   Menu,
   X,
   Home,
-  Info,
   CheckCircle2,
-  XCircle,
-  Target,
-  Zap
+  XCircle
 } from 'lucide-react';
 import { questionBank, type Question } from '../data/questions';
 import type { QuizConfig } from './CBTHub';
