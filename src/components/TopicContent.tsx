@@ -8,8 +8,10 @@ import { useLocalProgress } from '../hooks/useLocalProgress';
 import { getTopicImage } from '../utils/TopicMedia';
 
 interface TopicContentProps {
+  theme: any;
   topic: Topic;
   onNext: () => void; 
+  onPrevious: () => void;
   onClose: () => void;
 }
 
@@ -51,7 +53,7 @@ const renderMarkdown = (md: string) => {
     .replace(/\n\n/g, '<br/><br/>');
 };
 
-const TopicContent: React.FC<TopicContentProps> = ({ topic, onNext, onClose }) => {
+const TopicContent: React.FC<TopicContentProps> = ({ theme, topic, onNext, onPrevious, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [showQuiz, setShowQuiz] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
