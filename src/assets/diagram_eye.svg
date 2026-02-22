@@ -1,0 +1,18 @@
+<svg viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="300" fill="#F8FAFC"/>
+  <!-- Eye Ball -->
+  <circle cx="200" cy="150" r="100" fill="white" stroke="#64748B" stroke-width="4"/>
+  <!-- Lens -->
+  <path d="M230 110C245 130 245 170 230 190C215 170 215 130 230 110Z" fill="#BAE6FD" stroke="#0284C7" stroke-width="2"/>
+  <!-- Iris/Pupil -->
+  <rect x="245" y="120" width="10" height="60" rx="5" fill="#0F172A"/>
+  <!-- Retina -->
+  <path d="M150 70C120 100 120 200 150 230" stroke="#F43F5E" stroke-width="6" stroke-linecap="round"/>
+  <!-- Optic Nerve -->
+  <path d="M110 150H40" stroke="#64748B" stroke-width="12" stroke-linecap="round"/>
+  <!-- Labels -->
+  <text x="260" y="155" fill="#0F172A" font-family="sans-serif" font-size="12" font-weight="bold">PUPIL</text>
+  <text x="210" y="90" fill="#0284C7" font-family="sans-serif" font-size="12" font-weight="bold">LENS</text>
+  <text x="140" y="60" fill="#F43F5E" font-family="sans-serif" font-size="12" font-weight="bold">RETINA</text>
+  <text x="40" y="130" fill="#64748B" font-family="sans-serif" font-size="12" font-weight="bold">OPTIC NERVE</text>
+</svg>

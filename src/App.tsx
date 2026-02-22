@@ -1,111 +1,199 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  LayoutDashboard,
-  BookOpen,
-  Zap,
-  User,
-  Activity
-} from 'lucide-react';
-import Logo from './components/Logo';
+import { Menu, Bookmark, X, LogOut, Sun, Moon, ArrowRight } from 'lucide-react';
+import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import LearnView from './components/LearnView';
 import CBTHub, { type QuizConfig } from './components/CBTHub';
 import CBTExam from './components/CBTExam';
 import LoadingScreen from './components/LoadingScreen';
+import OfflineBanner from './components/OfflineBanner';
+import SignInModal from './components/SignInModal';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
+import Avatar from './components/Avatar';
+import Logo from './components/Logo';
+import { useOnlineStatus } from './hooks/useOnlineStatus';
+import { useLocalProgress, type RecentTopic } from './hooks/useLocalProgress';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<'dashboard' | 'learn' | 'exam' | 'profile'>('dashboard');
-  const [isInitializing, setIsInitializing] = useState(true);
+  const [view, setView] = useState('dashboard');
+  const [loading, setLoading] = useState(true);
   const [quizConfig, setQuizConfig] = useState<QuizConfig | null>(null);
+  const [signInOpen, setSignInOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [resumeSlug, setResumeSlug] = useState<string | null>(null);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('biobyte_theme') as 'light' | 'dark') || 'light';
+  });
+
+  const online = useOnlineStatus();
+  const { progress, user, logout } = useLocalProgress();
 
   useEffect(() => {
-    document.documentElement.classList.add('dark');
-    const timer = setTimeout(() => setIsInitializing(false), 1500);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setLoading(false), 1000);
+    return () => clearTimeout(t);
   }, []);
 
-  if (isInitializing) return <LoadingScreen />;
+  useEffect(() => {
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(theme);
+    localStorage.setItem('biobyte_theme', theme);
+  }, [theme]);
 
-  if (quizConfig) {
-    return <CBTExam config={quizConfig} onExit={() => setQuizConfig(null)} />;
-  }
+  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+
+  const handleResume = (topic: RecentTopic) => {
+    setResumeSlug(topic.slug);
+    setView('learn');
+  };
+
+  if (loading) return <LoadingScreen />;
+  if (quizConfig) return <CBTExam config={quizConfig} onExit={() => setQuizConfig(null)} />;
+
+  const avgScore = Math.round(Object.values(progress.quizScores).reduce((a, b) => a + b, 0) / (Object.values(progress.quizScores).length || 1));
 
   return (
-    <div className="flex h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans antialiased">
+    <div className="app-layout">
+      <PWAInstallPrompt />
       
-      <div className="flex-1 flex flex-col min-w-0 h-full relative">
-        
-        {/* Simple Branded Header */}
-        <header className="h-16 shrink-0 border-b border-slate-800 flex items-center justify-between px-6 bg-slate-900/50 backdrop-blur-xl z-[90]">
-          <div className="flex items-center gap-3">
-            <Logo size={32} />
-            <div className="flex flex-col leading-none">
-              <h1 className="text-base font-black uppercase italic tracking-tighter text-white leading-none">Biobite</h1>
-              <p className="text-[7px] font-bold text-blue-400 uppercase tracking-widest mt-0.5">Advanced Learning Suite</p>
-            </div>
+      <Sidebar 
+        view={view} 
+        setView={(v) => { setView(v); setResumeSlug(null); }} 
+        onSignIn={() => setSignInOpen(true)}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        user={user}
+        theme={theme}
+        toggleTheme={toggleTheme}
+      />
+
+      <div className="content-chrome">
+        <OfflineBanner show={!online} />
+
+        <header className="app-header">
+          <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 md:hidden text-[var(--text-muted)] hover:bg-[var(--bg-app)] rounded-lg transition-colors">
+            <Menu size={20} />
+          </button>
+          
+          <div className="md:hidden flex items-center gap-2 ml-2">
+            <Logo size={24} />
+            <span className="font-black text-[var(--text-main)] text-sm tracking-tight">Biobyte</span>
+          </div>
+
+          <div className="flex-1 hidden md:block">
+            <h2 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.25em]">
+              {view === 'dashboard' ? 'Control Center' : view}
+            </h2>
           </div>
           
-          <div className="flex items-center gap-2 px-3 py-1 bg-blue-900/30 border border-blue-800 rounded-full">
-             <Activity size={10} className="text-blue-400 animate-pulse" />
-             <span className="text-[8px] font-black text-blue-400 uppercase">Live</span>
+          <div className="flex items-center gap-4">
+             <div 
+                className="group flex items-center gap-3 pl-1 pr-3 py-1 bg-[var(--bg-app)] rounded-xl border border-[var(--border-base)] cursor-pointer hover:border-[var(--brand)] transition-all"
+                onClick={() => user ? setView('profile') : setSignInOpen(true)}
+             >
+                <Avatar 
+                  src={user?.photoURL} 
+                  name={user?.displayName || 'Guest'} 
+                  size={32} 
+                />
+                <div className="hidden sm:block text-left">
+                   <p className="text-[10px] font-black text-[var(--text-main)] leading-none mb-0.5 truncate max-w-[80px]">
+                     {user?.displayName?.split(' ')[0] || 'Guest'}
+                   </p>
+                   <p className="text-[8px] font-bold text-[var(--text-muted)] uppercase tracking-wider leading-none">
+                     {user ? 'Sync Active' : 'Offline'}
+                   </p>
+                </div>
+             </div>
           </div>
         </header>
 
-        {/* View Engine */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden scroll-touch no-scrollbar relative flex flex-col bg-slate-950">
+        <main className="scroll-viewport no-scrollbar">
           {view === 'dashboard' && (
-            <Dashboard 
+            <Dashboard
               onStartLearning={() => setView('learn')}
               onStartExam={() => setView('exam')}
+              onSignIn={() => setSignInOpen(true)}
+              recentTopics={progress.recentTopics}
+              onResumeTopic={handleResume}
+              progress={progress}
             />
           )}
+          {view === 'learn' && (
+            <LearnView 
+              initialTopicSlug={resumeSlug} 
+              onClearInitial={() => setResumeSlug(null)} 
+            />
+          )}
+          {view === 'exam' && <CBTHub onStartQuiz={cfg => setQuizConfig(cfg)} />}
           
-          {view === 'learn' && <LearnView />}
-
-          {view === 'exam' && <CBTHub onStartQuiz={(config) => setQuizConfig(config)} />}
+          {view === 'saved' && (
+            <div className="p-8 max-w-4xl mx-auto fade-in">
+               <h1 className="text-3xl font-black mb-8 tracking-tight text-[var(--text-main)]">Library</h1>
+               {Object.keys(progress.notes).length === 0 ? (
+                 <div className="py-32 text-center text-[var(--text-muted)] border-2 border-dashed border-[var(--border-base)] rounded-[32px] bg-[var(--bg-app)]/50">
+                    <Bookmark size={48} className="mx-auto mb-4 opacity-20" />
+                    <p className="font-bold">No notes saved yet.</p>
+                 </div>
+               ) : (
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(progress.notes).map(([slug, note]) => (
+                      <div key={slug} className="widget-card group relative">
+                        <div className="flex justify-between items-start mb-4">
+                          <span className="px-3 py-1 bg-[var(--brand-subtle)] text-[var(--brand)] text-[10px] font-black uppercase tracking-widest rounded-full">{slug}</span>
+                          <button className="text-[var(--text-muted)] hover:text-rose-500 transition-colors"><X size={16}/></button>
+                        </div>
+                        <p className="text-[var(--text-main)] text-sm leading-relaxed line-clamp-3 font-medium">{note}</p>
+                      </div>
+                    ))}
+                 </div>
+               )}
+            </div>
+          )}
 
           {view === 'profile' && (
-            <div className="flex-1 p-8 max-w-lg mx-auto w-full space-y-8 animate-in zoom-in-95 duration-500">
-              <div className="flex flex-col items-center text-center">
-                <div className="w-24 h-24 rounded-[2rem] bg-slate-900 border-4 border-slate-800 shadow-2xl p-1 overflow-hidden mb-6">
-                  <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=Scholar`} alt="avatar" className="rounded-3xl" />
-                </div>
-                <h2 className="text-2xl font-black uppercase italic text-white">Senior Scholar</h2>
-                <p className="text-[10px] font-black text-blue-600 uppercase mt-1 italic tracking-widest underline decoration-blue-500 underline-offset-4 decoration-2">Verified Profile</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="p-6 bg-slate-900 rounded-3xl border border-slate-800 shadow-sm text-center">
-                    <p className="text-[8px] font-black text-slate-500 uppercase">Total XP</p>
-                    <p className="text-2xl font-black text-blue-500 italic">4,200</p>
-                 </div>
-                 <div className="p-6 bg-slate-900 rounded-3xl border border-slate-800 shadow-sm text-center">
-                    <p className="text-[8px] font-black text-slate-500 uppercase">Rank Index</p>
-                    <p className="text-xl font-black text-emerald-500 italic">Elite</p>
-                 </div>
-              </div>
+            <div className="p-8 max-w-4xl mx-auto fade-in text-[var(--text-main)]">
+               <h1 className="text-3xl font-black mb-8 tracking-tight">Account</h1>
+               <div className="bg-slate-900 dark:bg-slate-800 p-10 rounded-[40px] text-white shadow-2xl relative overflow-hidden mb-12">
+                  <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
+                    <Avatar 
+                      src={user?.photoURL} 
+                      name={user?.displayName || 'Guest'} 
+                      size={96} 
+                      className="rounded-[32px] border-4 border-white/10"
+                    />
+                    <div className="flex-1">
+                      <h2 className="text-3xl font-black mb-2">{user?.displayName || 'Guest Scholar'}</h2>
+                      <p className="text-blue-300 font-bold uppercase tracking-[0.2em] text-[10px] mb-6">
+                        {user ? user.email : 'Local Session Data'} • WAEC 2026
+                      </p>
+                      {user ? (
+                        <button onClick={logout} className="px-8 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-rose-500/20 active:scale-95">Sign Out</button>
+                      ) : (
+                        <button onClick={() => setSignInOpen(true)} className="px-8 py-3 bg-white text-slate-900 hover:bg-slate-100 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95">Connect Google Account</button>
+                      )}
+                    </div>
+                  </div>
+               </div>
+
+               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Completed', value: progress.completedTopics.length, color: 'text-indigo-500' },
+                    { label: 'Accuracy', value: `${avgScore}%`, color: 'text-emerald-500' },
+                    { label: 'Streak', value: `${progress.currentStreak} Days`, color: 'text-rose-500' },
+                    { label: 'Minutes', value: progress.studyTimeMinutes, color: 'text-amber-500' },
+                  ].map(s => (
+                    <div key={s.label} className="bg-[var(--bg-surface)] border border-[var(--border-base)] p-6 rounded-[28px] text-center shadow-sm hover:border-[var(--brand)] transition-all group">
+                       <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 group-hover:text-[var(--brand)] transition-colors">{s.label}</p>
+                       <p className={`text-3xl font-black ${s.color}`}>{s.value}</p>
+                    </div>
+                  ))}
+               </div>
             </div>
           )}
         </main>
-
-        {/* Global Tab Bar */}
-        <nav className="h-16 shrink-0 bg-slate-900/90 backdrop-blur-2xl border-t border-slate-800 flex items-center justify-around z-[100] pb-2 shadow-2xl">
-          {[
-            { id: 'dashboard', label: 'Dash', icon: LayoutDashboard, color: 'text-blue-500' },
-            { id: 'learn', label: 'Learn', icon: BookOpen, color: 'text-emerald-500' },
-            { id: 'exam', label: 'Exam', icon: Zap, color: 'text-indigo-500' },
-            { id: 'profile', label: 'Me', icon: User, color: 'text-rose-500' }
-          ].map((tab) => (
-            <button 
-              key={tab.id}
-              onClick={() => setView(tab.id as any)}
-              className={`flex flex-col items-center gap-1 flex-1 transition-all ${view === tab.id ? tab.color + ' scale-110' : 'text-slate-500 opacity-40 hover:opacity-100'}`}
-            >
-              <tab.icon size={20} fill={view === tab.id ? "currentColor" : "none"} />
-              <span className="text-[8px] font-black uppercase tracking-tighter">{tab.label}</span>
-            </button>
-          ))}
-        </nav>
       </div>
+
+      <SignInModal isOpen={signInOpen} online={online} onClose={() => setSignInOpen(false)} />
     </div>
   );
 };

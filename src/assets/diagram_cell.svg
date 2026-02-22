@@ -1,0 +1,14 @@
+<svg viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="300" fill="#F8FAFC"/>
+  <!-- Cell Wall -->
+  <rect x="100" y="50" width="200" height="200" rx="20" fill="#F0FDF4" stroke="#16A34A" stroke-width="6"/>
+  <!-- Nucleus -->
+  <circle cx="200" cy="150" r="40" fill="#FEF3C7" stroke="#D97706" stroke-width="3"/>
+  <circle cx="200" cy="150" r="15" fill="#D97706"/>
+  <!-- Vacuole -->
+  <path d="M130 100C130 80 180 80 180 100C180 150 130 150 130 100Z" fill="#E0F2FE" stroke="#0369A1" stroke-width="2"/>
+  <!-- Labels -->
+  <text x="210" y="40" fill="#16A34A" font-family="sans-serif" font-size="12" font-weight="bold">CELL WALL</text>
+  <text x="250" y="155" fill="#D97706" font-family="sans-serif" font-size="12" font-weight="bold">NUCLEUS</text>
+  <text x="110" y="75" fill="#0369A1" font-family="sans-serif" font-size="12" font-weight="bold">VACUOLE</text>
+</svg>

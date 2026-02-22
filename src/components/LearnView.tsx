@@ -1,133 +1,139 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { syllabus, type Theme, type Chapter, type Topic } from '../data/syllabus';
 import TopicContent from './TopicContent';
-import { 
-  ChevronRight, 
-  ChevronDown, 
-  BookOpen, 
-  Layers, 
-  ArrowLeft,
-  ArrowRight,
-  GraduationCap
-} from 'lucide-react';
+import { ChevronRight, Layout, Book, ArrowLeft, CheckCircle, Search, Layers } from 'lucide-react';
+import { useLocalProgress } from '../hooks/useLocalProgress';
 
-const LearnView: React.FC = () => {
-  const [selectedTopic, setSelectedTopic] = useState<{theme: Theme, chapter: Chapter, topic: Topic} | null>(null);
+interface LearnViewProps {
+  initialTopicSlug?: string | null;
+  onClearInitial?: () => void;
+}
+
+const LearnView: React.FC<LearnViewProps> = ({ initialTopicSlug, onClearInitial }) => {
   const [activeLevel, setActiveLevel] = useState<'SS1' | 'SS2' | 'SS3'>('SS1');
-  const [expandedThemes, setExpandedThemes] = useState<string[]>(['theme-1']);
+  const [selectedTopic, setSelectedTopic] = useState<{ theme: Theme; chapter: Chapter; topic: Topic } | null>(null);
+  const { addRecentTopic, progress } = useLocalProgress();
 
-  const levels = ['SS1', 'SS2', 'SS3'] as const;
+  useEffect(() => {
+    if (initialTopicSlug) {
+      let found: { theme: Theme; chapter: Chapter; topic: Topic } | null = null;
+      syllabus.forEach(t => t.chapters.forEach(c => c.topics.forEach(tp => {
+        if (tp.slug === initialTopicSlug) found = { theme: t, chapter: c, topic: tp };
+      })));
+      if (found) {
+        setSelectedTopic(found);
+        setActiveLevel(found.theme.level as any);
+      }
+      onClearInitial?.();
+    }
+  }, [initialTopicSlug, onClearInitial]);
 
-  const toggleTheme = (themeId: string) => {
-    setExpandedThemes(prev => prev.includes(themeId) ? prev.filter(id => id !== themeId) : [...prev, themeId]);
+  useEffect(() => {
+    if (selectedTopic) {
+      addRecentTopic({
+        slug: selectedTopic.topic.slug,
+        title: selectedTopic.topic.title,
+        chapterTitle: selectedTopic.chapter.title,
+        level: selectedTopic.theme.level
+      });
+    }
+  }, [selectedTopic, addRecentTopic]);
+
+  const filteredThemes = useMemo(() => syllabus.filter(t => t.level === activeLevel), [activeLevel]);
+
+  const allTopicsFlattened = useMemo(() => {
+    const list: { theme: Theme; chapter: Chapter; topic: Topic }[] = [];
+    syllabus.forEach(t => t.chapters.forEach(c => c.topics.forEach(tp => list.push({ theme: t, chapter: c, topic: tp }))));
+    return list;
+  }, []);
+
+  const goNext = () => {
+    if (!selectedTopic) return;
+    const idx = allTopicsFlattened.findIndex(t => t.topic.slug === selectedTopic.topic.slug);
+    if (idx < allTopicsFlattened.length - 1) setSelectedTopic(allTopicsFlattened[idx + 1]);
   };
 
-  const filteredSyllabus = syllabus.filter(t => t.level === activeLevel);
-
-  if (selectedTopic) {
-    return (
-      <div className="flex flex-col h-full bg-white dark:bg-slate-950 animate-in slide-in-from-right duration-500">
-        <header className="h-14 shrink-0 bg-slate-900 border-b border-slate-800 flex items-center px-4 gap-4 z-50">
-          <button 
-            onClick={() => setSelectedTopic(null)}
-            className="p-2 rounded-lg bg-slate-800 text-slate-400 active:scale-90"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div className="flex flex-col">
-            <h2 className="text-[8px] font-black text-blue-400 uppercase tracking-widest italic leading-none mb-1">Laboratory Directory</h2>
-            <p className="text-xs font-bold text-white truncate max-w-[200px] leading-none uppercase italic">{selectedTopic.topic.title}</p>
-          </div>
-        </header>
-        {/* TopicContent must be scrollable internally */}
-        <div className="flex-1 overflow-hidden">
-          <TopicContent 
-            theme={selectedTopic.theme} 
-            chapter={selectedTopic.chapter} 
-            topic={selectedTopic.topic} 
-            onNext={() => {}}
-            onPrevious={() => setSelectedTopic(null)}
-          />
-        </div>
-      </div>
-    );
-  }
+  const goPrev = () => {
+    if (!selectedTopic) return;
+    const idx = allTopicsFlattened.findIndex(t => t.topic.slug === selectedTopic.topic.slug);
+    if (idx > 0) setSelectedTopic(allTopicsFlattened[idx - 1]);
+  };
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 animate-in fade-in duration-500 overflow-hidden">
+    <div className="flex h-full bg-[var(--bg-app)]">
       
-      {/* Level Selector Tabs */}
-      <div className="shrink-0 p-4 bg-slate-900 border-b border-slate-800">
-        <div className="flex gap-2 p-1 bg-slate-800 rounded-2xl">
-          {levels.map(level => (
-            <button
-              key={level}
-              onClick={() => setActiveLevel(level)}
-              className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${activeLevel === level ? 'bg-blue-600 text-white shadow-lg scale-105' : 'text-slate-500'}`}
-            >
-              {level}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Directory Content - SCROLLABLE */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32 no-scrollbar scroll-touch">
-        <div className="space-y-1 px-2">
-          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] italic">Scheme of Work</h3>
-          <p className="text-xs font-bold text-white uppercase italic">Academic Year {activeLevel}</p>
+      {/* ── Desktop Lesson Sidebar ── */}
+      <div className={`flex flex-col w-full md:w-[320px] lg:w-[380px] border-r border-[var(--border-base)] shrink-0 ${selectedTopic ? 'hidden md:flex' : 'flex'} bg-[var(--bg-sidebar)]`}>
+        <div className="h-14 flex items-center px-6 border-b border-[var(--border-base)] bg-[var(--bg-sidebar)] sticky top-0 z-10 shrink-0">
+          <div className="flex bg-[var(--bg-app)] rounded-lg p-1 w-full border border-[var(--border-base)]">
+             {(['SS1', 'SS2', 'SS3'] as const).map(lvl => (
+               <button
+                 key={lvl}
+                 onClick={() => setActiveLevel(lvl)}
+                 className={`flex-1 py-1 text-[10px] font-black rounded-md transition-all ${activeLevel === lvl ? 'bg-[var(--brand)] text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+               >
+                 {lvl}
+               </button>
+             ))}
+          </div>
         </div>
 
-        <div className="space-y-3">
-          {filteredSyllabus.map(theme => (
-            <div key={theme.id} className="bg-slate-900 rounded-[2rem] border border-slate-800 overflow-hidden shadow-2xl">
-              <button 
-                onClick={() => toggleTheme(theme.id)}
-                className="w-full p-5 flex items-center justify-between active:bg-white/5 transition-all"
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${expandedThemes.includes(theme.id) ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                    <Layers size={20} />
+        <div className="flex-1 overflow-y-auto no-scrollbar bg-[var(--bg-app)]/30">
+          {filteredThemes.map(theme => (
+            <div key={theme.id} className="p-4 space-y-4">
+              <div className="flex items-center justify-between px-2">
+                 <h3 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em]">{theme.title}</h3>
+              </div>
+              
+              <div className="space-y-1">
+                {theme.chapters.map(chapter => (
+                  <div key={chapter.id} className="bg-[var(--bg-surface)] border border-[var(--border-base)] rounded-xl overflow-hidden shadow-sm">
+                     <div className="px-4 py-2.5 bg-[var(--bg-app)] border-b border-[var(--border-base)] text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                        {chapter.title}
+                     </div>
+                     <div className="divide-y divide-[var(--border-base)]">
+                        {chapter.topics.map(topic => {
+                           const isActive = selectedTopic?.topic.slug === topic.slug;
+                           const isComp = progress.completedTopics.includes(topic.slug);
+                           return (
+                             <button
+                               key={topic.slug}
+                               onClick={() => setSelectedTopic({ theme, chapter, topic })}
+                               className={`w-full text-left px-4 py-3.5 text-sm font-semibold transition-all flex items-center justify-between group ${isActive ? 'bg-[var(--brand)] text-white' : 'text-[var(--text-main)] hover:bg-[var(--bg-app)]'}`}
+                             >
+                               <span className="truncate flex-1">{topic.title}</span>
+                               {isComp && <CheckCircle size={14} className={isActive ? 'text-white' : 'text-emerald-500'} />}
+                             </button>
+                           );
+                        })}
+                     </div>
                   </div>
-                  <div className="text-left">
-                    <h4 className="text-xs font-black text-white uppercase italic leading-none">{theme.title}</h4>
-                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1">{theme.chapters.length} Phases</p>
-                  </div>
-                </div>
-                {expandedThemes.includes(theme.id) ? <ChevronDown size={18} className="text-blue-500" /> : <ChevronRight size={18} className="text-slate-700" />}
-              </button>
-
-              {expandedThemes.includes(theme.id) && (
-                <div className="px-4 pb-5 space-y-4 animate-in slide-in-from-top-2 duration-300">
-                  {theme.chapters.map(chapter => (
-                    <div key={chapter.id} className="space-y-2">
-                      <div className="flex items-center gap-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest italic">
-                        <BookOpen size={10} /> {chapter.title}
-                      </div>
-                      <div className="grid grid-cols-1 gap-1 pl-2">
-                        {chapter.topics.map((topic, tIdx) => (
-                          <button 
-                            key={tIdx}
-                            onClick={() => setSelectedTopic({ theme, chapter, topic })}
-                            className="w-full flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-transparent hover:border-blue-500/20 active:scale-95 transition-all group"
-                          >
-                            <span className="text-[11px] font-bold text-slate-300 uppercase italic tracking-tight group-hover:text-blue-400">{topic.title}</span>
-                            <ArrowRight size={14} className="text-blue-500 opacity-0 group-hover:opacity-100" />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                ))}
+              </div>
             </div>
           ))}
         </div>
+      </div>
 
-        {filteredSyllabus.length === 0 && (
-          <div className="p-10 text-center space-y-4 border-2 border-dashed border-slate-800 rounded-[2rem]">
-            <GraduationCap size={48} className="text-slate-800 mx-auto" />
-            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Expansion Required for this Level</p>
+      {/* ── Reader Stage ── */}
+      <div className={`flex-1 bg-[var(--bg-surface)] flex flex-col min-w-0 ${!selectedTopic ? 'hidden md:flex' : 'flex'}`}>
+        {selectedTopic ? (
+          <div className="flex-1 overflow-hidden relative">
+            <TopicContent
+              theme={selectedTopic.theme}
+              topic={selectedTopic.topic}
+              onNext={goNext}
+              onPrevious={goPrev}
+              onClose={() => setSelectedTopic(null)}
+            />
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-[var(--bg-app)]/20">
+            <div className="w-20 h-20 bg-[var(--bg-surface)] rounded-3xl border border-[var(--border-base)] flex items-center justify-center mb-6 shadow-sm">
+               <Book size={32} className="text-[var(--text-muted)]" />
+            </div>
+            <h3 className="text-xl font-black text-[var(--text-main)] mb-2 tracking-tight">Select a Lesson</h3>
+            <p className="text-sm text-[var(--text-muted)] max-w-[240px] font-medium leading-relaxed">Choose a biology topic from the sidebar to begin your study session.</p>
           </div>
         )}
       </div>

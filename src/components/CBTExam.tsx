@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Clock, 
-  Trophy, 
-  Menu,
-  X,
-  Home,
-  CheckCircle2,
-  XCircle
+import {
+  ChevronLeft, ChevronRight, Clock, Menu, X, CheckCircle2, XCircle, AlertCircle, Trophy
 } from 'lucide-react';
-import { questionBank, type Question } from '../data/questions';
+import { syllabus } from '../data/syllabus';
 import type { QuizConfig } from './CBTHub';
 import AtomicModal from './AtomicModal';
+import { useLocalProgress } from '../hooks/useLocalProgress';
+
+export interface Question {
+  id: string;
+  category: string;
+  question: string;
+  options: string[];
+  answer: string;
+  explanation: string;
+}
 
 interface CBTExamProps {
   config: QuizConfig;
@@ -20,125 +22,176 @@ interface CBTExamProps {
 }
 
 const CBTExam: React.FC<CBTExamProps> = ({ config, onExit }) => {
-  const [shuffledQuestions, setShuffledQuestions] = useState<Question[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [userAnswers, setUserAnswers] = useState<Record<number, number>>({});
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, number>>({});
   const [timeLeft, setTimeLeft] = useState(config.timeLimit * 60);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [viewMode, setViewMode] = useState<'results' | 'review'>('results');
+  const { saveQuizScore } = useLocalProgress();
 
   useEffect(() => {
-    let qs = [...questionBank];
-    const levelMap: Record<string, string[]> = {
-      'SS1': ['Cell Biology', 'Taxonomy', 'Botany', 'Zoology', 'Ecology', 'Microbiology', 'Nutrition'],
-      'SS2': ['Physiology', 'Nutrition', 'Ecology'],
-      'SS3': ['Physiology', 'Genetics', 'Evolution']
-    };
-    if (config.type === 'level' && config.targetId) {
-      const allowed = levelMap[config.targetId] || [];
-      qs = qs.filter(q => allowed.includes(q.category));
-    }
-    const processedQs = qs.sort(() => Math.random() - 0.5).slice(0, config.limit).map(q => {
-      if (q.options && q.options.length === 4) return q;
-      const distractors = questionBank
-        .filter(other => other.category === q.category && other.answer !== q.answer)
-        .map(other => other.answer).sort(() => Math.random() - 0.5).slice(0, 3);
-      while (distractors.length < 3) distractors.push("None of the above");
-      const allOptions = [...distractors, q.answer].sort(() => Math.random() - 0.5);
-      return { ...q, options: allOptions };
+    let allQs: Question[] = [];
+    syllabus.forEach(theme => {
+      if (config.type === 'level' && theme.level !== config.targetId) return;
+      if (config.type === 'theme' && theme.id !== config.targetId) return;
+      
+      theme.chapters.forEach(chapter => {
+        chapter.topics.forEach(topic => {
+          if (topic.data.quiz) {
+            topic.data.quiz.forEach((q, qi) => {
+              const options = Array.isArray(q.options) 
+                ? q.options 
+                : Object.entries(q.options).map(([k, v]) => `${k}: ${v}`);
+              
+              let finalAnswer = q.answer;
+              if (q.answer.length === 1 && !Array.isArray(q.options)) {
+                const optVal = (q.options as any)[q.answer];
+                if (optVal) finalAnswer = optVal;
+              }
+
+              allQs.push({
+                id: `${topic.slug}-${qi}`,
+                category: theme.title,
+                question: q.question,
+                options: options,
+                answer: finalAnswer,
+                explanation: q.explanation
+              });
+            });
+          }
+        });
+      });
     });
-    setShuffledQuestions(processedQs);
+
+    setQuestions(allQs.sort(() => Math.random() - 0.5).slice(0, config.limit));
   }, [config]);
 
   useEffect(() => {
-    if (isSubmitted || timeLeft <= 0) return;
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          setIsSubmitted(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [isSubmitted, timeLeft]);
+    if (submitted || timeLeft <= 0) return;
+    const t = setInterval(() =>
+      setTimeLeft(p => { if (p <= 1) { handleAutoSubmit(); return 0; } return p - 1; }), 1000);
+    return () => clearInterval(t);
+  }, [submitted, timeLeft]);
 
-  const handleSelect = (idx: number) => { if (!isSubmitted) setUserAnswers(p => ({ ...p, [currentIndex]: idx })); };
-  const formatTime = (s: number) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2, '0')}`;
-
-  const calculateScore = () => {
-    let s = 0;
-    shuffledQuestions.forEach((q, idx) => { if (q.options?.[userAnswers[idx]] === q.answer) s++; });
-    return s;
+  const handleAutoSubmit = () => {
+    const s = score();
+    const pct = Math.round((s / questions.length) * 100);
+    saveQuizScore(config.targetId || 'global', pct);
+    setSubmitted(true);
   };
 
-  if (shuffledQuestions.length === 0) return null;
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+  
+  const isCorrect = (q: Question, idx: number) => {
+    const chosen = q.options[idx];
+    if (chosen === q.answer) return true;
+    if (chosen && chosen.includes(': ')) {
+      const parts = chosen.split(': ');
+      if (parts[0] === q.answer || parts[1] === q.answer) return true;
+    }
+    return false;
+  };
 
-  if (isSubmitted && viewMode === 'results') {
-    const score = calculateScore();
-    const pct = Math.round((score / shuffledQuestions.length) * 100);
+  const score = () => questions.reduce((a, q, i) => a + (isCorrect(q, answers[i]) ? 1 : 0), 0);
+
+  const handleSubmit = () => {
+    const s = score();
+    const pct = Math.round((s / questions.length) * 100);
+    saveQuizScore(config.targetId || 'global', pct);
+    setShowConfirm(false);
+    setSubmitted(true);
+  };
+
+  if (questions.length === 0) return (
+    <div className="fixed inset-0 bg-[var(--bg-app)] flex flex-col items-center justify-center p-8 text-center">
+      <AlertCircle size={48} className="text-[var(--text-muted)] mb-4" />
+      <p className="text-lg font-black text-[var(--text-main)] mb-4">No questions found.</p>
+      <button className="btn btn-secondary px-8" onClick={onExit}>Return to Safety</button>
+    </div>
+  );
+
+  /* ── RESULTS ── */
+  if (submitted && viewMode === 'results') {
+    const s = score();
+    const pct = Math.round((s / questions.length) * 100);
     return (
-      <div className="fixed inset-0 z-[300] bg-slate-950 flex items-center justify-center p-4">
-        <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 text-center shadow-2xl">
-          <Trophy className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-          <h2 className="text-6xl font-black dark:text-white mb-2 italic tracking-tighter">{pct}%</h2>
-          <div className="grid grid-cols-2 gap-3 mb-8">
-            <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5">
-              <p className="text-[8px] font-black text-slate-400 uppercase">Correct</p>
-              <p className="text-xl font-black dark:text-white">{score}/{shuffledQuestions.length}</p>
-            </div>
-            <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5">
-              <p className="text-[8px] font-black text-slate-400 uppercase">Accuracy</p>
-              <p className="text-xl font-black text-blue-600">{pct}%</p>
-            </div>
+      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--bg-app)] animate-in fade-in duration-300 px-4">
+        <div className="bg-[var(--bg-surface)] w-full max-w-md rounded-[32px] shadow-2xl border border-[var(--border-base)] overflow-hidden text-center p-10 relative">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-[var(--brand)]" />
+          <div className="w-20 h-20 rounded-[24px] bg-[var(--brand-subtle)] text-[var(--brand)] flex items-center justify-center mx-auto mb-6 rotate-3">
+             <Trophy size={40} />
           </div>
-          <div className="flex flex-col gap-3">
-            <button onClick={() => setViewMode('review')} className="w-full py-4 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg">View Explanations</button>
-            <button onClick={onExit} className="w-full py-4 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest">Back Home</button>
+          <h2 className="text-4xl font-black text-[var(--text-main)] mb-2">{pct}%</h2>
+          <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-10">Simulation Performance</p>
+          <div className="grid grid-cols-2 gap-4 mb-10">
+             <div className="p-4 bg-[var(--bg-app)] rounded-2xl border border-[var(--border-base)]">
+                <span className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1">Score</span>
+                <span className="text-2xl font-black text-[var(--text-main)]">{s} / {questions.length}</span>
+             </div>
+             <div className="p-4 bg-[var(--bg-app)] rounded-2xl border border-[var(--border-base)]">
+                <span className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1">Duration</span>
+                <span className="text-2xl font-black text-[var(--text-main)]">{fmt(config.timeLimit * 60 - timeLeft)}</span>
+             </div>
+          </div>
+          <div className="space-y-3">
+             <button onClick={() => setViewMode('review')} className="btn btn-primary w-full shadow-lg">Detailed Review</button>
+             <button onClick={onExit} className="btn btn-ghost w-full">Back to Base</button>
           </div>
         </div>
       </div>
     );
   }
 
-  if (isSubmitted && viewMode === 'review') {
+  /* ── REVIEW ── */
+  if (submitted && viewMode === 'review') {
     return (
-      <div className="fixed inset-0 z-[300] bg-white dark:bg-slate-950 flex flex-col">
-        <header className="h-14 shrink-0 bg-slate-900 text-white px-4 flex items-center justify-between shadow-lg">
-          <h2 className="font-black uppercase text-[10px] tracking-widest italic">Atomic Review</h2>
-          <button onClick={() => setViewMode('results')} className="p-2 bg-white/10 rounded-lg"><X size={18} /></button>
+      <div className="fixed inset-0 z-[200] bg-[var(--bg-app)] flex flex-col animate-in slide-in-from-right-8 duration-300">
+        <header className="h-16 flex items-center justify-between px-6 bg-[var(--bg-surface)] border-b border-[var(--border-base)] shrink-0 sticky top-0 z-10">
+          <div>
+            <h2 className="font-black text-[var(--text-main)] tracking-tight">Review Session</h2>
+            <p className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Analytics Mode</p>
+          </div>
+          <button onClick={() => setViewMode('results')} className="p-2 hover:bg-[var(--bg-app)] rounded-xl text-[var(--text-muted)]"><X size={20}/></button>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
-          {shuffledQuestions.map((q, idx) => {
-            const userIdx = userAnswers[idx];
-            const isCorrect = q.options?.[userIdx] === q.answer;
+        <main className="flex-1 overflow-y-auto p-4 md:p-10 space-y-6 max-w-3xl mx-auto w-full no-scrollbar">
+          {questions.map((q, idx) => {
+            const correct = q.options?.[answers[idx]] === q.answer;
             return (
-              <div key={idx} className={`p-5 rounded-2xl bg-white dark:bg-slate-900 border-2 ${isCorrect ? 'border-emerald-500/20 shadow-emerald-500/5' : 'border-rose-500/20 shadow-rose-500/5'}`}>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-black text-[10px] ${isCorrect ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'}`}>{idx + 1}</span>
-                  <span className="text-[8px] font-black uppercase text-slate-400">{isCorrect ? 'Mastered' : 'Missed'}</span>
-                </div>
-                <h3 className="text-sm font-black text-slate-800 dark:text-white mb-4 uppercase">{q.question}</h3>
-                <div className="grid grid-cols-1 gap-2 mb-4">
-                  {q.options?.map((opt, oIdx) => {
-                    const isSelected = userIdx === oIdx;
-                    const isCorrectOpt = opt === q.answer;
-                    return (
-                      <div key={oIdx} className={`p-3 rounded-xl border flex items-center gap-3 text-[10px] font-bold ${isCorrectOpt ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500 text-emerald-700 dark:text-emerald-400' : isSelected ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-500 text-rose-700 dark:text-rose-400' : 'bg-slate-50 dark:bg-slate-800 border-transparent opacity-50'}`}>
-                        <span className="w-5 h-5 rounded bg-white/20 flex items-center justify-center">{String.fromCharCode(65+oIdx)}</span>
-                        <span>{opt}</span>
-                        {isCorrectOpt && <CheckCircle2 size={12} className="ml-auto" />}
-                        {isSelected && !isCorrectOpt && <XCircle size={12} className="ml-auto" />}
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border-l-4 border-blue-500 text-[11px] font-bold text-slate-700 dark:text-slate-300 italic">
-                  {q.explanation}
-                </div>
+              <div key={idx} className={`p-8 bg-[var(--bg-surface)] rounded-[28px] border shadow-sm ${correct ? 'border-emerald-500/20' : 'border-rose-500/20'}`}>
+                 <div className="flex items-center gap-3 mb-6">
+                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black ${correct ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
+                      {idx + 1}
+                    </span>
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${correct ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      {correct ? 'Success' : 'Incorrect'}
+                    </span>
+                 </div>
+                 <p className="font-bold text-[var(--text-main)] text-lg mb-6 leading-relaxed">{q.question}</p>
+                 <div className="space-y-2 mb-6">
+                    {q.options?.map((opt, oIdx) => {
+                       const isSelected = answers[idx] === oIdx;
+                       const isAnswer = opt === q.answer;
+                       let style = "bg-[var(--bg-app)] text-[var(--text-muted)] border-transparent";
+                       if (isAnswer) style = "bg-emerald-500/10 text-emerald-800 border-emerald-500/20 font-bold";
+                       else if (isSelected) style = "bg-rose-500/10 text-rose-800 border-rose-500/20";
+                       return (
+                         <div key={oIdx} className={`px-4 py-3 rounded-xl border text-sm flex gap-3 items-center ${style}`}>
+                            {isAnswer && <CheckCircle2 size={16} />}
+                            {isSelected && !isAnswer && <XCircle size={16} />}
+                            <span className="flex-1">{opt}</span>
+                         </div>
+                       );
+                    })}
+                 </div>
+                 {q.explanation && (
+                    <div className="p-5 bg-[var(--brand-subtle)] rounded-2xl text-xs font-medium leading-relaxed text-[var(--text-main)] border border-[var(--brand)]/10">
+                       <span className="font-black uppercase tracking-widest text-[9px] block mb-2 opacity-60">Logic Breakdown</span>
+                       {q.explanation}
+                    </div>
+                 )}
               </div>
             );
           })}
@@ -147,111 +200,88 @@ const CBTExam: React.FC<CBTExamProps> = ({ config, onExit }) => {
     );
   }
 
-  return (
-    <div className="fixed inset-0 z-[250] bg-white dark:bg-slate-950 flex flex-col h-[100dvh] overflow-hidden">
-      
-      {/* HUD Header */}
-      <header className="h-14 shrink-0 bg-slate-900 text-white px-4 flex items-center justify-between z-50">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setIsPaletteOpen(true)} className="p-2 bg-white/5 rounded-xl border border-white/10 active:scale-90 transition-all"><Menu size={18} /></button>
-          <button onClick={onExit} className="p-2 bg-white/5 rounded-xl border border-white/10 active:scale-90 transition-all text-blue-400"><Home size={18} /></button>
-          <div className="flex flex-col">
-            <h1 className="text-[10px] font-black uppercase italic text-blue-400">Atomic Phase</h1>
-            <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest leading-none">Simulation 4.2</p>
-          </div>
-        </div>
+  /* ── ACTIVE EXAM ── */
+  const q = questions[currentIdx];
+  const progressPercent = ((currentIdx + 1) / questions.length) * 100;
+  const lowTime = timeLeft < 120;
 
-        <div className="flex items-center gap-3">
-          <div className={`px-3 py-1 rounded-lg border-2 flex items-center gap-2 ${timeLeft < 60 ? 'bg-rose-600 border-rose-400 animate-pulse text-white' : 'bg-slate-800 border-slate-700 text-blue-400'}`}>
-            <Clock size={12} />
-            <span className="text-sm font-black font-mono tabular-nums">{formatTime(timeLeft)}</span>
-          </div>
-          <button onClick={() => setShowConfirm(true)} className="px-4 py-1.5 bg-blue-600 text-white rounded-lg font-black text-[9px] uppercase shadow-lg active:scale-95 transition-all">SUBMIT</button>
-        </div>
+  return (
+    <div className="fixed inset-0 z-[150] bg-[var(--bg-app)] flex flex-col animate-in fade-in duration-300">
+      <header className="h-16 flex items-center justify-between px-6 bg-[var(--bg-surface)] border-b border-[var(--border-base)] shrink-0 z-20">
+         <div className="flex items-center gap-4">
+            <button onClick={() => setPaletteOpen(true)} className="p-2 -ml-2 text-[var(--text-muted)] hover:bg-[var(--bg-app)] rounded-xl"><Menu size={20} /></button>
+            <div className="h-4 w-px bg-[var(--border-base)]" />
+            <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">
+               Quest <span className="text-[var(--text-main)]">{currentIdx + 1}</span> / {questions.length}
+            </span>
+         </div>
+         
+         <div className="flex items-center gap-4">
+            <div className={`
+              flex items-center gap-2 px-4 py-1.5 rounded-full font-mono font-black text-xs border transition-all
+              ${lowTime ? 'bg-red-50 text-red-600 border-red-100 animate-pulse' : 'bg-[var(--bg-app)] text-[var(--text-main)] border-[var(--border-base)]'}
+            `}>
+               <Clock size={14} className={lowTime ? 'text-red-600' : 'text-[var(--brand)]'} /> {fmt(timeLeft)}
+            </div>
+            <button onClick={() => setShowConfirm(true)} className="btn btn-primary h-9 px-6 rounded-full text-[10px] font-black tracking-widest uppercase">
+              Finish
+            </button>
+         </div>
       </header>
 
-      {/* Main Viewport */}
-      <div className="flex-1 overflow-hidden relative">
-        <div className="absolute top-0 left-0 w-full h-1 bg-slate-100 dark:bg-slate-900 z-10"><div className="h-full bg-blue-600 transition-all duration-1000" style={{ width: `${((currentIndex + 1) / shuffledQuestions.length) * 100}%` }}></div></div>
-
-        <main className="h-full overflow-y-auto p-4 sm:p-10 no-scrollbar bg-[#F8FAFC] dark:bg-slate-950 scroll-touch">
-          <div className="max-w-xl mx-auto space-y-6 pb-32 pt-4">
-            
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center text-xs font-black italic border-2 border-white dark:border-slate-800">Q{currentIndex + 1}</span>
-                <span className="text-[8px] font-black text-blue-600 uppercase tracking-widest underline decoration-blue-500 decoration-2 underline-offset-2">{shuffledQuestions[currentIndex].category}</span>
-              </div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter italic">{currentIndex + 1} / {shuffledQuestions.length}</p>
-            </div>
-
-            <h2 className="text-lg sm:text-2xl font-black text-slate-800 dark:text-white leading-tight uppercase italic tracking-tighter decoration-slate-100 dark:decoration-slate-900 underline decoration-4 underline-offset-4">
-              {shuffledQuestions[currentIndex].question}
-            </h2>
-
-            <div className="grid grid-cols-1 gap-2 pt-2">
-              {shuffledQuestions[currentIndex].options?.map((option, idx) => {
-                const isSelected = userAnswers[currentIndex] === idx;
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => handleSelect(idx)}
-                    className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 active:scale-[0.98] ${isSelected ? 'bg-blue-600 border-blue-600 text-white shadow-xl scale-[1.01]' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-blue-500'}`}
-                  >
-                    <span className={`w-8 h-8 shrink-0 rounded-lg flex items-center justify-center font-black text-xs transition-all ${isSelected ? 'bg-white text-blue-600 rotate-6 shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>{String.fromCharCode(65 + idx)}</span>
-                    <span className="text-[11px] font-black uppercase italic tracking-tight leading-snug">{option}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </main>
-
-        {/* FLOATING HUD NAV BAR */}
-        <div className="absolute bottom-6 left-0 right-0 flex justify-center px-6 pointer-events-none z-50">
-           <div className="bg-slate-900/90 dark:bg-slate-800/90 backdrop-blur-xl border border-white/10 p-2 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex items-center gap-2 pointer-events-auto">
-              <button 
-                onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
-                disabled={currentIndex === 0}
-                className="p-4 bg-white/5 rounded-full text-white active:scale-90 disabled:opacity-20 transition-all"
-              >
-                <ChevronLeft size={20} />
-              </button>
-              
-              <div className="px-6 py-2 bg-white/10 rounded-full flex flex-col items-center">
-                 <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest leading-none">OBJECTIVE</span>
-                 <span className="text-lg font-black text-white font-mono leading-none mt-1">{currentIndex + 1} <span className="text-slate-500 text-xs">/ {shuffledQuestions.length}</span></span>
-              </div>
-
-              <button 
-                onClick={() => setCurrentIndex(Math.min(shuffledQuestions.length - 1, currentIndex + 1))}
-                disabled={currentIndex === shuffledQuestions.length - 1}
-                className="p-4 bg-blue-600 rounded-full text-white active:scale-90 shadow-lg shadow-blue-500/30 disabled:opacity-20 transition-all"
-              >
-                <ChevronRight size={20} />
-              </button>
-           </div>
-        </div>
+      <div className="h-1 bg-[var(--border-base)] w-full">
+         <div className="h-full bg-[var(--brand)] transition-all duration-300" style={{ width: `${progressPercent}%` }} />
       </div>
 
-      {/* Palette Drawer */}
-      {isPaletteOpen && (
-        <div className="fixed inset-0 z-[260] bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setIsPaletteOpen(false)}>
-          <div className="w-[85vw] max-w-xs h-full bg-white dark:bg-slate-900 p-6 shadow-2xl animate-in slide-in-from-left duration-500 flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-100 dark:border-white/5">
-              <h4 className="font-black text-sm uppercase italic dark:text-white">Lab Matrix</h4>
-              <button onClick={() => setIsPaletteOpen(false)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors"><X size={18} /></button>
+      <main className="flex-1 overflow-y-auto p-6 md:p-16 no-scrollbar">
+         <div className="max-w-3xl mx-auto pb-32">
+            <div className="mb-12">
+               <span className="text-[10px] font-black text-[var(--brand)] uppercase tracking-widest mb-4 block">{q.category}</span>
+               <h2 className="text-2xl md:text-3xl font-black text-[var(--text-main)] leading-snug tracking-tight">{q.question}</h2>
             </div>
-            <div className="flex-1 overflow-y-auto grid grid-cols-4 gap-2 content-start no-scrollbar">
-              {shuffledQuestions.map((_, idx) => (
-                <button key={idx} onClick={() => { setCurrentIndex(idx); setIsPaletteOpen(false); }} className={`aspect-square rounded-lg text-[9px] font-black transition-all flex items-center justify-center border-2 ${currentIndex === idx ? 'bg-blue-600 border-blue-600 text-white shadow-xl scale-110' : userAnswers[idx] !== undefined ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-400'}`}>{idx + 1}</button>
-              ))}
+            <div className="space-y-3">
+               {q.options?.map((option, idx) => {
+                  const selected = answers[currentIdx] === idx;
+                  return (
+                     <button key={idx} onClick={() => setAnswers(p => ({ ...p, [currentIdx]: idx }))} className={`w-full text-left p-5 rounded-2xl border-2 transition-all flex items-center gap-5 group ${selected ? 'border-[var(--brand)] bg-[var(--brand-subtle)] ring-4 ring-[var(--brand)]/5' : 'border-[var(--border-base)] bg-[var(--bg-surface)] hover:border-[var(--brand)]'}`}>
+                        <span className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black transition-all ${selected ? 'bg-[var(--brand)] text-white' : 'bg-[var(--bg-app)] text-[var(--text-muted)]'}`}>
+                           {String.fromCharCode(65 + idx)}
+                        </span>
+                        <span className={`text-base font-bold ${selected ? 'text-[var(--text-main)]' : 'text-[var(--text-muted)] group-hover:text-[var(--text-main)]'}`}>{option}</span>
+                     </button>
+                  );
+               })}
             </div>
-          </div>
+         </div>
+      </main>
+
+      <div className="h-20 border-t border-[var(--border-base)] bg-[var(--bg-surface)]/80 backdrop-blur-md px-6 flex items-center justify-between shrink-0 z-20">
+         <button onClick={() => setCurrentIdx(Math.max(0, currentIdx - 1))} disabled={currentIdx === 0} className="btn btn-ghost px-6 font-black text-xs uppercase tracking-widest disabled:opacity-30">
+           <ChevronLeft size={18} /> Prev
+         </button>
+         <button onClick={() => setCurrentIdx(Math.min(questions.length - 1, currentIdx + 1))} disabled={currentIdx === questions.length - 1} className="btn btn-secondary px-8 font-black text-xs uppercase tracking-widest disabled:opacity-30">
+           Next <ChevronRight size={18} />
+         </button>
+      </div>
+
+      {paletteOpen && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setPaletteOpen(false)}>
+           <div className="w-full max-w-2xl bg-[var(--bg-surface)] rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+              <div className="p-6 border-b border-[var(--border-base)] flex justify-between items-center bg-[var(--bg-app)]">
+                 <h3 className="font-black text-[var(--text-main)]">Question Map</h3>
+                 <button onClick={() => setPaletteOpen(false)} className="p-2 hover:bg-[var(--bg-surface)] rounded-xl text-[var(--text-muted)]"><X size={20}/></button>
+              </div>
+              <div className="p-8 grid grid-cols-5 sm:grid-cols-10 gap-3 max-h-[60vh] overflow-y-auto no-scrollbar">
+                 {questions.map((_, idx) => (
+                    <button key={idx} onClick={() => { setCurrentIdx(idx); setPaletteOpen(false); }} className={`aspect-square rounded-xl font-black text-xs flex items-center justify-center transition-all ${currentIdx === idx ? 'bg-[var(--brand)] text-white shadow-lg scale-110' : answers[idx] !== undefined ? 'bg-[var(--brand-subtle)] text-[var(--brand)] border border-[var(--brand)]/20' : 'bg-[var(--bg-app)] text-[var(--text-muted)] hover:bg-[var(--border-base)]'}`}>
+                      {idx + 1}
+                    </button>
+                 ))}
+              </div>
+           </div>
         </div>
       )}
-
-      <AtomicModal isOpen={showConfirm} title="Final Submission" message="Transmit objective data for scoring and detailed review?" onConfirm={() => { setShowConfirm(false); setIsSubmitted(true); }} onCancel={() => setShowConfirm(false)} />
+      <AtomicModal isOpen={showConfirm} title="Submission" message="Confirm submit simulation?" onConfirm={handleSubmit} onCancel={() => setShowConfirm(false)} />
     </div>
   );
 };

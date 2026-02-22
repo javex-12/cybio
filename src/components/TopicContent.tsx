@@ -1,183 +1,202 @@
-import React, { useState, useEffect } from 'react';
-import type { Topic, Chapter, Theme } from '../data/syllabus';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import type { Topic, Theme } from '../data/syllabus';
 import { 
-  ChevronRight, 
-  ChevronLeft,
-  RefreshCw, 
-  GraduationCap,
-  Zap,
-  Info,
-  HelpCircle
+  ChevronLeft, ChevronRight, RefreshCw, GraduationCap, CheckCircle, Clock, BookOpen, ArrowRight, Sparkles, ArrowLeft
 } from 'lucide-react';
-
-// Atomic Lesson Imports
-import { chap1Content } from '../data/lessons/chap1';
-import { chap2Content } from '../data/lessons/chap2';
-import { chap3Content } from '../data/lessons/chap3';
-import { chap4Content } from '../data/lessons/chap4';
-import { chap5Content } from '../data/lessons/chap5';
-import { chap6Content } from '../data/lessons/chap6';
-import { chap7Content } from '../data/lessons/chap7';
-import { chap8Content } from '../data/lessons/chap8';
-import { chap9Content } from '../data/lessons/chap9';
-import { chap10Content } from '../data/lessons/chap10';
-import { chap11Content } from '../data/lessons/chap11';
-import { chap12Content } from '../data/lessons/chap12';
-import { chap13Content } from '../data/lessons/chap13';
-import { chap14Content } from '../data/lessons/chap14';
-import { chap15Content } from '../data/lessons/chap15';
-import { chap16Content } from '../data/lessons/chap16';
-import { chap17Content } from '../data/lessons/chap17';
-import { chap18Content } from '../data/lessons/chap18';
-import { chap19Content } from '../data/lessons/chap19';
-import { chap20Content } from '../data/lessons/chap20';
-import { chap21Content } from '../data/lessons/chap21';
-import { chap22Content } from '../data/lessons/chap22';
-import { chap23Content } from '../data/lessons/chap23';
-import { chap24Content } from '../data/lessons/chap24';
-import { chap25Content } from '../data/lessons/chap25';
-import { chap26Content } from '../data/lessons/chap26';
-import { chap27Content } from '../data/lessons/chap27';
-import { chap28Content } from '../data/lessons/chap28';
-
 import ChapterQuiz from './ChapterQuiz';
-import { questionBank } from '../data/questions';
+import { useLocalProgress } from '../hooks/useLocalProgress';
+import BioDiagram from './BioDiagram';
+import { getTopicImage } from '../utils/TopicMedia';
 
 interface TopicContentProps {
-  theme: Theme;
-  chapter: Chapter;
-  topic: Topic;
-  onNext: () => void;
-  onPrevious: () => void;
+  theme: Theme; topic: Topic;
+  onNext: () => void; onPrevious: () => void; onClose: () => void;
 }
 
-const contentMap: Record<string, Record<string, string>> = {
-  'chap-1': chap1Content, 'chap-2': chap2Content, 'chap-3': chap3Content, 'chap-4': chap4Content,
-  'chap-5': chap5Content, 'chap-6': chap6Content, 'chap-7': chap7Content, 'chap-8': chap8Content,
-  'chap-9': chap9Content, 'chap-10': chap10Content, 'chap-11': chap11Content, 'chap-12': chap12Content,
-  'chap-13': chap13Content, 'chap-14': chap14Content, 'chap-15': chap15Content, 'chap-16': chap16Content,
-  'chap-17': chap17Content, 'chap-18': chap18Content, 'chap-19': chap19Content, 'chap-20': chap20Content,
-  'chap-21': chap21Content, 'chap-22': chap22Content, 'chap-23': chap23Content, 'chap-24': chap24Content,
-  'chap-25': chap25Content, 'chap-26': chap26Content, 'chap-27': chap27Content, 'chap-28': chap28Content,
+const scrubContent = (raw: string, topicTitle: string) => {
+  if (!raw) return '';
+  let text = raw;
+  text = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  text = text.replace(/<think>[\s\S]*/gi, '');
+  text = text.replace(/^(.+)\n={3,}/gm, '# $1');
+  text = text.replace(/^(.+)\n-{3,}/gm, '## $1');
+  const escapedTitle = topicTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const titleRegex = new RegExp(`^#\\s*${escapedTitle}\\s*(\n|$)`, 'im');
+  text = text.replace(titleRegex, '');
+  text = text.replace(/^#\s*$/gm, '');
+  text = text.replace(/^---\s*$/gm, '');
+  return text.trim();
 };
 
-const TopicContent: React.FC<TopicContentProps> = ({ theme, chapter, topic, onNext, onPrevious }) => {
-  const [content, setContent] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+const renderMarkdown = (md: string) => {
+  if (!md) return '';
+  let html = md;
+  const tableRegex = /^\|(.+)\|\n\|( *:?-+ *:?\|)+\n((\|.+\|\n)*)/gm;
+  html = html.replace(tableRegex, (match) => {
+    const lines = match.trim().split('\n');
+    const header = lines[0].split('|').filter(c => c.trim().length > 0);
+    const body = lines.slice(2).map(row => row.split('|').filter(c => c.trim().length > 0));
+    const headerHtml = `<thead><tr>${header.map(h => `<th>${h.trim()}</th>`).join('')}</tr></thead>`;
+    const bodyHtml = `<tbody>${body.map(row => `<tr>${row.map(c => `<td>${c.trim()}</td>`).join('')}</tr>`).join('')}</tbody>`;
+    return `<div class="table-wrap"><table>${headerHtml}${bodyHtml}</table></div>`;
+  });
+
+  return html
+    .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+    .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+    .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^[\*-] (.*$)/gm, '<li>$1</li>')
+    .replace(/^\d+\. (.*$)/gm, '<li>$1</li>')
+    .replace(/\n\n/g, '<br/><br/>');
+};
+
+const TopicContent: React.FC<TopicContentProps> = ({ theme, topic, onNext, onPrevious, onClose }) => {
+  const [loading, setLoading] = useState(true);
   const [showQuiz, setShowQuiz] = useState(false);
-  const [checkpointQ, setCheckpointQ] = useState<any>(null);
-  const [selectedAns, setSelectedAns] = useState<number | null>(null);
-  const [showFeedback, setShowFeedback] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { markTopicCompleted, addStudyTime } = useLocalProgress();
 
   useEffect(() => {
-    setIsLoading(true);
-    setShowQuiz(false);
-    setShowFeedback(false);
-    setSelectedAns(null);
-    
-    const chapterData = contentMap[chapter.id];
-    if (chapterData && chapterData[topic.slug]) {
-      setContent(chapterData[topic.slug]);
-      
-      const relatedQ = questionBank.find(q => 
-        q.category.toLowerCase().includes(theme.title.split(' ')[0].toLowerCase()) ||
-        topic.title.split(' ').some(kw => q.question.toLowerCase().includes(kw.toLowerCase()))
-      );
-      
-      if (relatedQ) {
-        const distractors = questionBank
-          .filter(other => other.category === relatedQ.category && other.answer !== relatedQ.answer)
-          .map(other => other.answer).sort(() => Math.random() - 0.5).slice(0, 3);
-        const options = [...distractors, relatedQ.answer].sort(() => Math.random() - 0.5);
-        setCheckpointQ({ ...relatedQ, options });
-      }
-    } else {
-      setContent(null);
-    }
-    setTimeout(() => setIsLoading(false), 400);
-  }, [chapter.id, topic.slug]);
+    const interval = setInterval(() => { if (!loading && !showQuiz) addStudyTime(1); }, 60000);
+    return () => clearInterval(interval);
+  }, [loading, showQuiz, addStudyTime]);
 
-  const handleCheckpoint = (idx: number) => {
-    if (showFeedback) return;
-    setSelectedAns(idx);
-    setShowFeedback(true);
+  const cleanedContent = useMemo(() => scrubContent(topic.data.content || '', topic.title), [topic.data.content, topic.title]);
+  const cleanedDescription = useMemo(() => scrubContent(topic.data.description || '', ''), [topic.data.description]);
+  const topicImage = useMemo(() => getTopicImage(topic.slug, topic.title), [topic.slug, topic.title]);
+
+  const modules = useMemo(() => {
+    if (!cleanedContent) return [];
+    
+    // ── SUPER AGGRESSIVE SPLITTER ──
+    // Split by Headers, Separators, or every 800 characters
+    let parts = cleanedContent.split(/(?=## |---|### )/);
+    
+    // If it's still a huge block, force-split every 3-4 paragraphs
+    if (parts.length <= 1) {
+        const paragraphs = cleanedContent.split('\n\n');
+        const chunks: string[] = [];
+        let current = "";
+        paragraphs.forEach(p => {
+            if ((current + p).length > 800) {
+                chunks.push(current.trim());
+                current = p;
+            } else { current += "\n\n" + p; }
+        });
+        if (current) chunks.push(current.trim());
+        parts = chunks;
+    }
+    
+    return parts.filter(p => p.trim().length > 10);
+  }, [cleanedContent]);
+
+  useEffect(() => {
+    setLoading(true); setShowQuiz(false); setCurrentPage(0);
+    const t = setTimeout(() => setLoading(false), 300);
+    return () => clearTimeout(t);
+  }, [topic.slug]);
+
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [currentPage]);
+
+  const handleFinishTopic = () => { markTopicCompleted(topic.slug); setShowQuiz(true); };
+
+  if (showQuiz) return <ChapterQuiz topic={topic} onExit={() => setShowQuiz(false)} />;
+
+  const renderModuleContent = (md: string) => {
+    const parts = md.split(/(```[\s\S]*?```)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('```')) {
+        const content = part.replace(/```(markdown|text|ascii)?/g, '').replace(/```/g, '').trim();
+        return <div key={i} className="diagram-container"><pre className="diagram-pre"><code>{content}</code></pre></div>;
+      }
+      return <div key={i} dangerouslySetInnerHTML={{ __html: renderMarkdown(part) }} />;
+    });
   };
 
-  if (showQuiz) return <ChapterQuiz chapterId={chapter.id} onExit={() => setShowQuiz(false)} />;
+  const isLastPage = currentPage === modules.length - 1;
+  const progress = ((currentPage + 1) / modules.length) * 100;
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 overflow-hidden relative">
-      <div className="flex-1 overflow-y-auto scroll-touch p-4 sm:p-10 no-scrollbar">
-        <div className="max-w-3xl mx-auto space-y-10 pb-40">
-          
-          <div className="flex items-center justify-between border-b border-slate-800 pb-6">
-             <div className="flex items-center gap-3">
-                <span className="px-3 py-1 bg-blue-900/30 text-blue-400 border border-blue-800 rounded-lg text-[8px] font-black uppercase">{theme.level}</span>
-                <span className="text-[10px] font-bold text-slate-500 uppercase italic">{chapter.title}</span>
-             </div>
-          </div>
+    <div className="flex flex-col h-full bg-[var(--bg-surface)] relative animate-in fade-in duration-300">
+      
+      {/* Chrome Header */}
+      <div className="h-14 border-b border-[var(--border-base)] px-4 flex items-center justify-between bg-[var(--bg-surface)] z-20 sticky top-0">
+         <div className="flex items-center gap-3">
+            <button onClick={onClose} className="p-2 hover:bg-[var(--bg-app)] rounded-lg text-[var(--text-muted)] transition-colors mr-1"><ArrowLeft size={20} /></button>
+            <span className="text-[10px] font-black uppercase tracking-widest text-[var(--brand)] bg-[var(--brand-subtle)] px-2 py-0.5 rounded">Step {currentPage + 1} of {modules.length}</span>
+            <div className="h-4 w-px bg-[var(--border-base)] hidden sm:block" />
+            <span className="text-xs font-bold text-[var(--text-muted)] truncate max-w-[150px] md:max-w-none">{topic.title}</span>
+         </div>
+         <div className="hidden lg:flex items-center gap-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest"><Clock size={12} /> ~{Math.ceil(modules.length * 1.5)} min left</div>
+      </div>
 
-          <div className="prose prose-invert max-w-none prose-slate prose-sm sm:prose-base leading-relaxed">
-            {isLoading ? (
-              <div className="flex flex-col items-center justify-center py-24">
-                 <RefreshCw className="animate-spin text-blue-600" size={40} />
-                 <p className="mt-6 font-black uppercase text-[8px] text-slate-500">Loading Scientific Data...</p>
-              </div>
-            ) : content ? (
-              <div className="animate-in fade-in duration-700" dangerouslySetInnerHTML={{ __html: content }} />
-            ) : (
-              <div className="p-12 bg-slate-900 rounded-[2.5rem] border border-slate-800 text-center">
-                 <HelpCircle size={48} className="text-slate-800 mx-auto mb-4" />
-                 <h4 className="text-sm font-black text-slate-400 uppercase italic">Calibration Required</h4>
-                 <p className="text-[10px] text-slate-600 font-bold uppercase leading-relaxed">This atomic phase is being prepared for the 2026 session.</p>
-              </div>
-            )}
-          </div>
-
-          {!isLoading && checkpointQ && (
-            <div className="mt-10 p-6 bg-slate-900 rounded-3xl text-white shadow-2xl border border-white/5 overflow-hidden relative">
-               <div className="absolute right-0 top-0 p-4 opacity-5"><Zap size={100} /></div>
-               <h4 className="text-[10px] font-black uppercase text-emerald-400 mb-6 italic underline underline-offset-8">Atomic Checkpoint</h4>
-               <h3 className="text-base font-black mb-6 italic uppercase leading-tight">{checkpointQ.question}</h3>
-               <div className="grid grid-cols-1 gap-2">
-                 {checkpointQ.options.map((opt: string, i: number) => {
-                   const isCorrect = opt === checkpointQ.answer;
-                   const isSelected = selectedAns === i;
-                   let style = "bg-white/5 border-white/10";
-                   if (showFeedback) {
-                     if (isCorrect) style = "bg-emerald-600 border-emerald-400";
-                     else if (isSelected) style = "bg-rose-600 border-rose-400";
-                     else style = "bg-white/5 border-white/5 opacity-20";
-                   }
-                   return (
-                     <button key={i} onClick={() => handleCheckpoint(i)} disabled={showFeedback} className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${style}`}>
-                       <span className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-[10px] ${isSelected && !isCorrect ? 'bg-rose-700' : isCorrect && showFeedback ? 'bg-emerald-700' : 'bg-white/10'}`}>{String.fromCharCode(65+i)}</span>
-                       <span className="text-xs font-bold uppercase italic tracking-tight">{opt}</span>
-                     </button>
-                   );
-                 })}
-               </div>
-               {showFeedback && (
-                 <div className="mt-6 p-5 bg-blue-600 rounded-2xl text-[11px] font-bold italic leading-relaxed shadow-lg">
-                   <div className="flex items-center gap-2 mb-2 uppercase text-[8px] font-black text-blue-100"><Info size={12}/> Scientific Rational</div>
-                   {checkpointQ.explanation}
-                 </div>
-               )}
+      <div className="h-1 bg-[var(--border-base)] w-full z-20 sticky top-14"><div className="h-full bg-[var(--brand)] transition-all duration-500 ease-out" style={{ width: `${progress}%` }} /></div>
+      
+      <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar scroll-smooth bg-[var(--bg-surface)]">
+        <div className="max-w-3xl mx-auto px-6 py-10 md:py-16 min-h-full flex flex-col">
+          {loading ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-20 gap-4 opacity-40">
+              <RefreshCw size={32} className="animate-spin text-[var(--brand)]" />
+              <p className="text-[10px] font-black tracking-[0.2em] uppercase text-[var(--text-muted)]">Building Step...</p>
             </div>
-          )}
+          ) : modules.length > 0 ? (
+            <div key={currentPage} className="animate-in fade-in slide-in-from-bottom-2 duration-500 flex-1 prose-content">
+              
+              {currentPage === 0 && (
+                <div className="mb-12">
+                   {/* ALWAYS RENDER THE TITLE */}
+                   <h1 className="text-4xl md:text-5xl font-black text-[var(--text-main)] tracking-tight leading-tight mb-8">{topic.title}</h1>
 
-          {!isLoading && content && (
-            <div className="pt-10 flex gap-2">
-               <button onClick={onPrevious} className="flex-1 py-4 bg-slate-900 text-slate-500 rounded-xl font-black uppercase text-[9px] flex items-center justify-center gap-2 border border-slate-800 active:scale-95"><ChevronLeft size={16} /> Prev</button>
-               {chapter.topics[chapter.topics.length - 1].slug === topic.slug ? (
-                 <button onClick={() => setShowQuiz(true)} className="flex-1 py-4 bg-blue-600 text-white rounded-xl font-black uppercase text-[9px] flex items-center justify-center gap-2 active:scale-95 shadow-lg"><GraduationCap size={16} /> Start Quiz</button>
-               ) : (
-                 <button onClick={onNext} className="flex-1 py-4 bg-blue-600 text-white rounded-xl font-black uppercase text-[9px] flex items-center justify-center gap-2 active:scale-95 shadow-lg">Next <ChevronRight size={16} /></button>
-               )}
+                   {/* RENDER IMAGE IF AVAILABLE */}
+                   {topicImage && (
+                     <div className="w-full h-64 md:h-80 rounded-[40px] overflow-hidden mb-10 border border-[var(--border-base)] shadow-lg relative group bg-slate-100">
+                        <img src={topicImage} alt={topic.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                     </div>
+                   )}
+
+                   <div className="flex items-start gap-4 p-6 bg-[var(--brand-subtle)] rounded-3xl border border-[var(--brand)]/10 text-[var(--brand)]">
+                      <BookOpen size={24} className="shrink-0 mt-1" />
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Module Objective</p>
+                        <p className="text-lg font-medium leading-relaxed italic text-[var(--text-main)] opacity-80">{cleanedDescription ? `"${cleanedDescription.split('.')[0]}."` : "Master the core concepts through structured steps."}</p>
+                      </div>
+                   </div>
+                </div>
+              )}
+              
+              <div className="prose-content selection:bg-[var(--brand-subtle)]">
+                {renderModuleContent(modules[currentPage])}
+              </div>
+
+              {isLastPage && (
+                <div className="mt-auto pt-12 animate-in zoom-in-95 duration-700">
+                   <div className="p-10 bg-slate-900 dark:bg-slate-800 rounded-[40px] text-white shadow-2xl relative overflow-hidden border border-white/5">
+                      <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12"><Sparkles size={120} /></div>
+                      <div className="relative z-10 text-center md:text-left">
+                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-4">Topic Completed</div>
+                         <h3 className="text-2xl font-black mb-2">Excellent Work!</h3>
+                         <p className="text-slate-400 mb-8 leading-relaxed font-medium">You've mastered all the modules for this topic. Ready to prove your knowledge?</p>
+                         <div className="flex flex-col sm:flex-row gap-4">
+                            <button onClick={handleFinishTopic} className="btn bg-white text-slate-900 hover:bg-slate-100 px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all"><GraduationCap size={20} /> Start Practice Quiz</button>
+                            <button onClick={() => { markTopicCompleted(topic.slug); onNext(); }} className="btn border border-slate-700 hover:bg-slate-800 px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest text-slate-300 active:scale-95 transition-all">Next Topic <ArrowRight size={18} /></button>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+              )}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
+
+      {!loading && !isLastPage && (
+        <div className="h-20 border-t border-[var(--border-base)] bg-[var(--bg-surface)]/80 backdrop-blur-md px-6 flex items-center justify-between sticky bottom-0 z-20">
+           <button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 0} className="btn btn-ghost px-6 font-black text-xs uppercase tracking-widest disabled:opacity-30"><ChevronLeft size={18} /> Back</button>
+           <button onClick={() => setCurrentPage(p => p + 1)} className="btn btn-primary px-10 rounded-full font-black text-xs uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-blue-500/20">Next Step <ChevronRight size={18} /></button>
+        </div>
+      )}
     </div>
   );
 };
