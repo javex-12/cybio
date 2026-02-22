@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Bookmark, X, LogOut, Sun, Moon, ArrowRight } from 'lucide-react';
+import { Menu, Bookmark, X } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import LearnView from './components/LearnView';
