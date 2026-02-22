@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, WifiOff } from 'lucide-react';
 import { auth, googleProvider } from '../firebase';
-import { signInWithRedirect } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect } from 'firebase/auth';
 
 interface SignInModalProps {
     isOpen: boolean;
@@ -26,44 +26,56 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, online, onClose }) =>
     const handleGoogleSignIn = async () => {
         setLoading(true);
         try {
-            // Using redirect for mobile reliability
-            await signInWithRedirect(auth, googleProvider);
-        } catch (error) {
-            console.error("Sign-in error:", error);
-            setLoading(false);
+            // 1. Try Popup first (Fastest experience)
+            await signInWithPopup(auth, googleProvider);
+            onClose();
+        } catch (error: any) {
+            console.warn("Auth: Popup blocked or failed, attempting redirect...", error.code);
+            
+            // 2. Fallback to Redirect if Popup is blocked or fails
+            if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
+                try {
+                    await signInWithRedirect(auth, googleProvider);
+                } catch (err) {
+                    console.error("Auth: Redirect also failed", err);
+                    setLoading(false);
+                }
+            } else {
+                setLoading(false);
+            }
         }
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-            <div className="bg-[var(--bg-surface)] w-full max-w-sm rounded-xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
+            <div className="bg-[var(--bg-surface)] w-full max-w-sm rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between p-4 border-b border-[var(--border-base)]">
                     <h3 className="font-bold text-[var(--text-main)]">Sign In</h3>
                     <button onClick={onClose} className="p-1 hover:bg-[var(--bg-app)] rounded transition-colors text-[var(--text-muted)]"><X size={18} /></button>
                 </div>
                 
-                <div className="p-6 space-y-4">
+                <div className="p-6 md:p-8 space-y-4">
                     <button 
                         onClick={handleGoogleSignIn}
                         disabled={loading || !online}
-                        className="w-full flex items-center justify-center gap-3 py-3 bg-[var(--bg-surface)] border border-[var(--border-base)] rounded-lg hover:border-[var(--brand)] text-sm font-semibold text-[var(--text-main)] transition-all active:scale-[0.98] disabled:opacity-50"
+                        className="w-full flex items-center justify-center gap-3 py-3.5 bg-[var(--bg-surface)] border border-[var(--border-base)] rounded-xl hover:border-[var(--brand)] text-sm font-black uppercase tracking-widest text-[var(--text-main)] transition-all active:scale-[0.98] disabled:opacity-50 shadow-sm"
                     >
-                        <GoogleIcon /> {loading ? 'Redirecting...' : 'Continue with Google'}
+                        <GoogleIcon /> {loading ? 'Authorizing...' : 'Connect Google'}
                     </button>
                     
                     {!online && (
-                        <div className="p-3 bg-amber-500/10 text-amber-600 text-xs rounded-lg flex items-center gap-2 border border-amber-500/20">
-                            <WifiOff size={14} /> Internet required to sign in.
+                        <div className="p-3 bg-amber-500/10 text-amber-600 text-[10px] font-bold uppercase tracking-widest rounded-xl flex items-center gap-2 border border-amber-500/20">
+                            <WifiOff size={14} /> Internet Required
                         </div>
                     )}
 
                     <div className="relative py-2">
                         <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[var(--border-base)]"></div></div>
-                        <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest"><span className="bg-[var(--bg-surface)] px-2 text-[var(--text-muted)]">Secure Access</span></div>
+                        <div className="relative flex justify-center text-[9px] uppercase font-black tracking-[0.2em]"><span className="bg-[var(--bg-surface)] px-2 text-[var(--text-muted)]">Cloud Continuity</span></div>
                     </div>
 
-                    <p className="text-center text-[10px] text-[var(--text-muted)] leading-relaxed uppercase tracking-widest">
-                        Your progress will be automatically synced to your Google Account.
+                    <p className="text-center text-[10px] text-[var(--text-muted)] leading-relaxed uppercase font-black tracking-widest">
+                        Data is synced instantly.
                     </p>
                 </div>
             </div>

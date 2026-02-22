@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Bookmark, X } from 'lucide-react';
+import { Menu, Bookmark, X, LogOut, Sun, Moon, ArrowRight } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import LearnView from './components/LearnView';
@@ -70,24 +70,31 @@ const App: React.FC = () => {
         <OfflineBanner show={!online} />
 
         <header className="app-header">
-          <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 md:hidden text-[var(--text-muted)] hover:bg-[var(--bg-app)] rounded-lg transition-colors">
-            <Menu size={20} />
-          </button>
-          
-          <div className="md:hidden flex items-center gap-2 ml-2">
-            <Logo size={24} />
-            <span className="font-black text-[var(--text-main)] text-sm tracking-tight">Biobyte</span>
-          </div>
-
-          <div className="flex-1 hidden md:block">
-            <h2 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.25em]">
-              {view === 'dashboard' ? 'Control Center' : view}
-            </h2>
+          {/* LEFT: Menu trigger (Mobile only) */}
+          <div className="flex items-center md:hidden w-10">
+            <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-[var(--text-muted)] hover:bg-[var(--bg-app)] rounded-lg">
+              <Menu size={20} />
+            </button>
           </div>
           
-          <div className="flex items-center gap-4">
+          {/* CENTER: Logo or Context Title */}
+          <div className="flex-1 flex items-center justify-center md:justify-start gap-2">
+            <div className="md:hidden flex items-center gap-2">
+              <Logo size={24} />
+              <span className="font-black text-[var(--text-main)] text-sm tracking-tight">Biobyte</span>
+            </div>
+            
+            <div className="hidden md:block">
+              <h2 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.25em]">
+                {view === 'dashboard' ? 'Control Center' : view}
+              </h2>
+            </div>
+          </div>
+          
+          {/* RIGHT: User Profile Pill */}
+          <div className="flex items-center justify-end w-10 md:w-auto shrink-0">
              <div 
-                className="group flex items-center gap-3 pl-1 pr-3 py-1 bg-[var(--bg-app)] rounded-xl border border-[var(--border-base)] cursor-pointer hover:border-[var(--brand)] transition-all"
+                className="group flex items-center gap-3 pl-1 pr-1 md:pr-3 py-1 bg-[var(--bg-app)] rounded-xl border border-[var(--border-base)] cursor-pointer hover:border-[var(--brand)] transition-all"
                 onClick={() => user ? setView('profile') : setSignInOpen(true)}
              >
                 <Avatar 
@@ -95,12 +102,12 @@ const App: React.FC = () => {
                   name={user?.displayName || 'Guest'} 
                   size={32} 
                 />
-                <div className="hidden sm:block text-left">
+                <div className="hidden md:block text-left">
                    <p className="text-[10px] font-black text-[var(--text-main)] leading-none mb-0.5 truncate max-w-[80px]">
                      {user?.displayName?.split(' ')[0] || 'Guest'}
                    </p>
                    <p className="text-[8px] font-bold text-[var(--text-muted)] uppercase tracking-wider leading-none">
-                     {user ? 'Sync Active' : 'Offline'}
+                     {user ? 'Cloud Active' : 'Offline'}
                    </p>
                 </div>
              </div>
