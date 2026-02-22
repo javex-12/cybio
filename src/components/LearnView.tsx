@@ -66,12 +66,6 @@ const LearnView: React.FC<LearnViewProps> = ({ initialTopicSlug, onClearInitial 
     if (idx < allTopicsFlattened.length - 1) setSelectedTopic(allTopicsFlattened[idx + 1]);
   };
 
-  const goPrev = () => {
-    if (!selectedTopic) return;
-    const idx = allTopicsFlattened.findIndex(t => t.topic.slug === selectedTopic.topic.slug);
-    if (idx > 0) setSelectedTopic(allTopicsFlattened[idx - 1]);
-  };
-
   return (
     <div className="flex h-full bg-[var(--bg-app)]">
       
@@ -92,19 +86,25 @@ const LearnView: React.FC<LearnViewProps> = ({ initialTopicSlug, onClearInitial 
         </div>
 
         <div className="flex-1 overflow-y-auto no-scrollbar bg-[var(--bg-app)]/30">
-          {filteredThemes.map(theme => (
-            <div key={theme.id} className="p-4 space-y-4">
-              <div className="flex items-center justify-between px-2">
-                 <h3 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em]">{theme.title}</h3>
-              </div>
-              
-              <div className="space-y-1">
-                {theme.chapters.map(chapter => (
-                  <div key={chapter.id} className="bg-[var(--bg-surface)] border border-[var(--border-base)] rounded-xl overflow-hidden shadow-sm">
-                     <div className="px-4 py-2.5 bg-[var(--bg-app)] border-b border-[var(--border-base)] text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
-                        {chapter.title}
-                     </div>
-                     <div className="divide-y divide-[var(--border-base)]">
+          {filteredThemes.map(theme => {
+            const total = theme.chapters.reduce((a, c) => a + c.topics.length, 0);
+            const comp = theme.chapters.reduce((a, c) => a + c.topics.filter(tp => progress.completedTopics.includes(tp.slug)).length, 0);
+            const pct = Math.round((comp / (total || 1)) * 100);
+
+            return (
+              <div key={theme.id} className="p-4 space-y-4">
+                <div className="flex items-center justify-between px-2">
+                   <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{theme.title}</h3>
+                   <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{pct}%</span>
+                </div>
+                
+                <div className="space-y-2">
+                  {theme.chapters.map(chapter => (
+                    <div key={chapter.id} className="bg-[var(--bg-surface)] border border-[var(--border-base)] rounded-2xl overflow-hidden shadow-sm">
+                       <div className="px-4 py-2.5 bg-[var(--bg-app)] border-b border-[var(--border-base)] text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                          {chapter.title}
+                       </div>
+                       <div className="divide-y divide-[var(--border-base)]">
                         {chapter.topics.map(topic => {
                            const isActive = selectedTopic?.topic.slug === topic.slug;
                            const isComp = progress.completedTopics.includes(topic.slug);
@@ -119,12 +119,13 @@ const LearnView: React.FC<LearnViewProps> = ({ initialTopicSlug, onClearInitial 
                              </button>
                            );
                         })}
-                     </div>
-                  </div>
-                ))}
+                       </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -133,10 +134,8 @@ const LearnView: React.FC<LearnViewProps> = ({ initialTopicSlug, onClearInitial 
         {selectedTopic ? (
           <div className="flex-1 overflow-hidden relative">
             <TopicContent
-              _theme={selectedTopic.theme}
               topic={selectedTopic.topic}
               onNext={goNext}
-              _onPrevious={goPrev}
               onClose={() => setSelectedTopic(null)}
             />
           </div>

@@ -8,10 +8,8 @@ import { useLocalProgress } from '../hooks/useLocalProgress';
 import { getTopicImage } from '../utils/TopicMedia';
 
 interface TopicContentProps {
-  _theme: any;
   topic: Topic;
   onNext: () => void; 
-  _onPrevious: () => void;
   onClose: () => void;
 }
 
@@ -53,7 +51,7 @@ const renderMarkdown = (md: string) => {
     .replace(/\n\n/g, '<br/><br/>');
 };
 
-const TopicContent: React.FC<TopicContentProps> = ({ _theme, topic, onNext, _onPrevious, onClose }) => {
+const TopicContent: React.FC<TopicContentProps> = ({ topic, onNext, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [showQuiz, setShowQuiz] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
@@ -116,7 +114,6 @@ const TopicContent: React.FC<TopicContentProps> = ({ _theme, topic, onNext, _onP
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-surface)] relative animate-in fade-in duration-300">
-      
       <div className="h-14 border-b border-[var(--border-base)] px-4 flex items-center justify-between bg-[var(--bg-surface)] z-20 sticky top-0">
          <div className="flex items-center gap-3">
             <button onClick={onClose} className="p-2 hover:bg-[var(--bg-app)] rounded-lg text-[var(--text-muted)] transition-colors mr-1"><ArrowLeft size={20} /></button>
@@ -126,7 +123,6 @@ const TopicContent: React.FC<TopicContentProps> = ({ _theme, topic, onNext, _onP
          </div>
          <div className="hidden lg:flex items-center gap-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest"><Clock size={12} /> ~{Math.ceil(modules.length * 1.5)} min left</div>
       </div>
-
       <div className="h-1 bg-[var(--border-base)] w-full z-20 sticky top-14"><div className="h-full bg-[var(--brand)] transition-all duration-500 ease-out" style={{ width: `${progress}%` }} /></div>
       
       <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar scroll-smooth bg-[var(--bg-surface)]">
