@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, WifiOff } from 'lucide-react';
 import { auth, googleProvider } from '../firebase';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithRedirect } from 'firebase/auth';
 
 interface SignInModalProps {
     isOpen: boolean;
@@ -26,44 +26,43 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, online, onClose }) =>
     const handleGoogleSignIn = async () => {
         setLoading(true);
         try {
-            await signInWithPopup(auth, googleProvider);
-            onClose();
+            // Using redirect for mobile reliability
+            await signInWithRedirect(auth, googleProvider);
         } catch (error) {
             console.error("Sign-in error:", error);
-        } finally {
             setLoading(false);
         }
     };
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-            <div className="bg-white w-full max-w-sm rounded-xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                    <h3 className="font-bold text-gray-900">Sign In</h3>
-                    <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
+            <div className="bg-[var(--bg-surface)] w-full max-w-sm rounded-xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between p-4 border-b border-[var(--border-base)]">
+                    <h3 className="font-bold text-[var(--text-main)]">Sign In</h3>
+                    <button onClick={onClose} className="p-1 hover:bg-[var(--bg-app)] rounded transition-colors text-[var(--text-muted)]"><X size={18} /></button>
                 </div>
                 
                 <div className="p-6 space-y-4">
                     <button 
                         onClick={handleGoogleSignIn}
                         disabled={loading || !online}
-                        className="w-full flex items-center justify-center gap-3 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-semibold text-gray-700 transition-all active:scale-[0.98] disabled:opacity-50"
+                        className="w-full flex items-center justify-center gap-3 py-3 bg-[var(--bg-surface)] border border-[var(--border-base)] rounded-lg hover:border-[var(--brand)] text-sm font-semibold text-[var(--text-main)] transition-all active:scale-[0.98] disabled:opacity-50"
                     >
-                        <GoogleIcon /> Continue with Google
+                        <GoogleIcon /> {loading ? 'Redirecting...' : 'Continue with Google'}
                     </button>
                     
                     {!online && (
-                        <div className="p-3 bg-amber-50 text-amber-800 text-xs rounded-lg flex items-center gap-2">
+                        <div className="p-3 bg-amber-500/10 text-amber-600 text-xs rounded-lg flex items-center gap-2 border border-amber-500/20">
                             <WifiOff size={14} /> Internet required to sign in.
                         </div>
                     )}
 
                     <div className="relative py-2">
-                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
-                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-gray-400">Secure Access</span></div>
+                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[var(--border-base)]"></div></div>
+                        <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest"><span className="bg-[var(--bg-surface)] px-2 text-[var(--text-muted)]">Secure Access</span></div>
                     </div>
 
-                    <p className="text-center text-[10px] text-gray-400 leading-relaxed uppercase tracking-widest">
+                    <p className="text-center text-[10px] text-[var(--text-muted)] leading-relaxed uppercase tracking-widest">
                         Your progress will be automatically synced to your Google Account.
                     </p>
                 </div>
