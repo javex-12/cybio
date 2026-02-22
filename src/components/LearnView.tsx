@@ -133,10 +133,10 @@ const LearnView: React.FC<LearnViewProps> = ({ initialTopicSlug, onClearInitial 
         {selectedTopic ? (
           <div className="flex-1 overflow-hidden relative">
             <TopicContent
-              theme={selectedTopic.theme}
+              _theme={selectedTopic.theme}
               topic={selectedTopic.topic}
               onNext={goNext}
-              onPrevious={goPrev}
+              _onPrevious={goPrev}
               onClose={() => setSelectedTopic(null)}
             />
           </div>
