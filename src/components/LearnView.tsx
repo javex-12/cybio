@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { syllabus, type Theme, type Chapter, type Topic } from '../data/syllabus';
 import TopicContent from './TopicContent';
-import { ChevronRight, Layout, Book, ArrowLeft, CheckCircle, Search, Layers } from 'lucide-react';
+import { Book, CheckCircle } from 'lucide-react';
 import { useLocalProgress } from '../hooks/useLocalProgress';
 
 interface LearnViewProps {
@@ -16,13 +16,20 @@ const LearnView: React.FC<LearnViewProps> = ({ initialTopicSlug, onClearInitial 
 
   useEffect(() => {
     if (initialTopicSlug) {
-      let found: { theme: Theme; chapter: Chapter; topic: Topic } | null = null;
-      syllabus.forEach(t => t.chapters.forEach(c => c.topics.forEach(tp => {
-        if (tp.slug === initialTopicSlug) found = { theme: t, chapter: c, topic: tp };
-      })));
-      if (found) {
-        setSelectedTopic(found);
-        setActiveLevel(found.theme.level as any);
+      let foundTopic: { theme: Theme; chapter: Chapter; topic: Topic } | null = null;
+      syllabus.forEach(t => {
+        t.chapters.forEach(c => {
+          c.topics.forEach(tp => {
+            if (tp.slug === initialTopicSlug) {
+              foundTopic = { theme: t, chapter: c, topic: tp };
+            }
+          });
+        });
+      });
+      
+      if (foundTopic) {
+        setSelectedTopic(foundTopic);
+        setActiveLevel((foundTopic as any).theme.level);
       }
       onClearInitial?.();
     }
@@ -42,8 +49,14 @@ const LearnView: React.FC<LearnViewProps> = ({ initialTopicSlug, onClearInitial 
   const filteredThemes = useMemo(() => syllabus.filter(t => t.level === activeLevel), [activeLevel]);
 
   const allTopicsFlattened = useMemo(() => {
-    const list: { theme: Theme; chapter: Chapter; topic: Topic }[] = [];
-    syllabus.forEach(t => t.chapters.forEach(c => c.topics.forEach(tp => list.push({ theme: t, chapter: c, topic: tp }))));
+    const list: Array<{ theme: Theme; chapter: Chapter; topic: Topic }> = [];
+    syllabus.forEach(t => {
+      t.chapters.forEach(c => {
+        c.topics.forEach(tp => {
+          list.push({ theme: t, chapter: c, topic: tp });
+        });
+      });
+    });
     return list;
   }, []);
 

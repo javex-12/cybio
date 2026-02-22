@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import type { Topic, Theme } from '../data/syllabus';
+import type { Topic } from '../data/syllabus';
 import { 
-  ChevronLeft, ChevronRight, RefreshCw, GraduationCap, CheckCircle, Clock, BookOpen, ArrowRight, Sparkles, ArrowLeft
+  ChevronRight, RefreshCw, GraduationCap, Clock, BookOpen, ArrowRight, Sparkles, ArrowLeft
 } from 'lucide-react';
 import ChapterQuiz from './ChapterQuiz';
 import { useLocalProgress } from '../hooks/useLocalProgress';
-import BioDiagram from './BioDiagram';
 import { getTopicImage } from '../utils/TopicMedia';
 
 interface TopicContentProps {
-  theme: Theme; topic: Topic;
-  onNext: () => void; onPrevious: () => void; onClose: () => void;
+  topic: Topic;
+  onNext: () => void; 
+  onClose: () => void;
 }
 
 const scrubContent = (raw: string, topicTitle: string) => {
@@ -51,7 +51,7 @@ const renderMarkdown = (md: string) => {
     .replace(/\n\n/g, '<br/><br/>');
 };
 
-const TopicContent: React.FC<TopicContentProps> = ({ theme, topic, onNext, onPrevious, onClose }) => {
+const TopicContent: React.FC<TopicContentProps> = ({ topic, onNext, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [showQuiz, setShowQuiz] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
@@ -69,12 +69,7 @@ const TopicContent: React.FC<TopicContentProps> = ({ theme, topic, onNext, onPre
 
   const modules = useMemo(() => {
     if (!cleanedContent) return [];
-    
-    // ── SUPER AGGRESSIVE SPLITTER ──
-    // Split by Headers, Separators, or every 800 characters
     let parts = cleanedContent.split(/(?=## |---|### )/);
-    
-    // If it's still a huge block, force-split every 3-4 paragraphs
     if (parts.length <= 1) {
         const paragraphs = cleanedContent.split('\n\n');
         const chunks: string[] = [];
@@ -88,7 +83,6 @@ const TopicContent: React.FC<TopicContentProps> = ({ theme, topic, onNext, onPre
         if (current) chunks.push(current.trim());
         parts = chunks;
     }
-    
     return parts.filter(p => p.trim().length > 10);
   }, [cleanedContent]);
 
@@ -121,7 +115,6 @@ const TopicContent: React.FC<TopicContentProps> = ({ theme, topic, onNext, onPre
   return (
     <div className="flex flex-col h-full bg-[var(--bg-surface)] relative animate-in fade-in duration-300">
       
-      {/* Chrome Header */}
       <div className="h-14 border-b border-[var(--border-base)] px-4 flex items-center justify-between bg-[var(--bg-surface)] z-20 sticky top-0">
          <div className="flex items-center gap-3">
             <button onClick={onClose} className="p-2 hover:bg-[var(--bg-app)] rounded-lg text-[var(--text-muted)] transition-colors mr-1"><ArrowLeft size={20} /></button>
@@ -143,18 +136,17 @@ const TopicContent: React.FC<TopicContentProps> = ({ theme, topic, onNext, onPre
             </div>
           ) : modules.length > 0 ? (
             <div key={currentPage} className="animate-in fade-in slide-in-from-bottom-2 duration-500 flex-1 prose-content">
-              
               {currentPage === 0 && (
                 <div className="mb-12">
-                   {/* ALWAYS RENDER THE TITLE */}
-                   <h1 className="text-4xl md:text-5xl font-black text-[var(--text-main)] tracking-tight leading-tight mb-8">{topic.title}</h1>
-
-                   {/* RENDER IMAGE IF AVAILABLE */}
                    {topicImage && (
                      <div className="w-full h-64 md:h-80 rounded-[40px] overflow-hidden mb-10 border border-[var(--border-base)] shadow-lg relative group bg-slate-100">
                         <img src={topicImage} alt={topic.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-8">
+                           <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight leading-tight drop-shadow-md">{topic.title}</h1>
+                        </div>
                      </div>
                    )}
+                   {!topicImage && <h1 className="text-4xl md:text-5xl font-black text-[var(--text-main)] tracking-tight leading-tight mb-6">{topic.title}</h1>}
 
                    <div className="flex items-start gap-4 p-6 bg-[var(--brand-subtle)] rounded-3xl border border-[var(--brand)]/10 text-[var(--brand)]">
                       <BookOpen size={24} className="shrink-0 mt-1" />
@@ -165,11 +157,7 @@ const TopicContent: React.FC<TopicContentProps> = ({ theme, topic, onNext, onPre
                    </div>
                 </div>
               )}
-              
-              <div className="prose-content selection:bg-[var(--brand-subtle)]">
-                {renderModuleContent(modules[currentPage])}
-              </div>
-
+              <div className="prose-content selection:bg-[var(--brand-subtle)]">{renderModuleContent(modules[currentPage])}</div>
               {isLastPage && (
                 <div className="mt-auto pt-12 animate-in zoom-in-95 duration-700">
                    <div className="p-10 bg-slate-900 dark:bg-slate-800 rounded-[40px] text-white shadow-2xl relative overflow-hidden border border-white/5">
@@ -190,10 +178,9 @@ const TopicContent: React.FC<TopicContentProps> = ({ theme, topic, onNext, onPre
           ) : null}
         </div>
       </div>
-
       {!loading && !isLastPage && (
         <div className="h-20 border-t border-[var(--border-base)] bg-[var(--bg-surface)]/80 backdrop-blur-md px-6 flex items-center justify-between sticky bottom-0 z-20">
-           <button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 0} className="btn btn-ghost px-6 font-black text-xs uppercase tracking-widest disabled:opacity-30"><ChevronLeft size={18} /> Back</button>
+           <button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 0} className="btn btn-ghost px-6 font-black text-xs uppercase tracking-widest disabled:opacity-30"><ArrowLeft size={18} /> Back</button>
            <button onClick={() => setCurrentPage(p => p + 1)} className="btn btn-primary px-10 rounded-full font-black text-xs uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-blue-500/20">Next Step <ChevronRight size={18} /></button>
         </div>
       )}

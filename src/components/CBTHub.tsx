@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Zap, BookOpen, Play, Layout, CheckCircle2, Clock, ListChecks, Target, BarChart3, ChevronRight, Globe } from 'lucide-react';
+import { BookOpen, Play, Layout, CheckCircle2, Target, Globe } from 'lucide-react';
 import { syllabus } from '../data/syllabus';
 
 interface CBTHubProps {
@@ -13,7 +13,7 @@ export interface QuizConfig {
   timeLimit: number;
 }
 
-const levels = ['SS1', 'SS2', 'SS3'] as const;
+const levels = ['SS1', 'SS2', 'SS3', 'ALL'] as const;
 const qOptions = [10, 20, 40, 60, 100];
 const tOptions = [15, 30, 45, 60, 90, 120];
 
@@ -48,7 +48,7 @@ const CBTHub: React.FC<CBTHubProps> = ({ onStartQuiz }) => {
            <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mt-0.5">WAEC Standard Readiness</p>
         </div>
         <div className="flex bg-[var(--bg-app)] p-1 rounded-xl border border-[var(--border-base)]">
-           {(['SS1', 'SS2', 'SS3', 'ALL'] as const).map(lvl => (
+           {levels.map(lvl => (
              <button
                key={lvl}
                onClick={() => selectLevel(lvl)}

@@ -113,7 +113,6 @@ export const useLocalProgress = () => {
             let newStreak = prev.currentStreak;
             
             if (prev.lastActivityDate) {
-                const last = new Date(prev.lastActivityDate);
                 const yesterday = new Date(today);
                 yesterday.setDate(today.getDate() - 1);
                 const yesterdayStr = yesterday.toISOString().split('T')[0];

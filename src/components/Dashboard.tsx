@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { 
-  ChevronRight, Clock, ArrowRight, 
-  PlayCircle, BookOpen, Target, Zap, Activity, 
-  Calendar, CheckCircle2, ShieldCheck, CloudLightning
+  ChevronRight, 
+  PlayCircle, BookOpen, Zap, 
+  ShieldCheck, CloudLightning
 } from 'lucide-react';
 import type { RecentTopic, LocalProgress } from '../hooks/useLocalProgress';
 import { auth } from '../firebase';

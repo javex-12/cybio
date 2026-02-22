@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Mail, WifiOff, ArrowRight, Github } from 'lucide-react';
+import { X, WifiOff } from 'lucide-react';
 import { auth, googleProvider } from '../firebase';
 import { signInWithPopup } from 'firebase/auth';
 

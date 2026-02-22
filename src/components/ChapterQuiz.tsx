@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Topic } from '../data/syllabus';
-import { ChevronRight, Trophy, ArrowLeft, X, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ChevronRight, Trophy, ArrowLeft, X, AlertCircle } from 'lucide-react';
 
 interface ChapterQuizProps {
   topic: Topic;
