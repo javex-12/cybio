@@ -1,73 +1,40 @@
-# React + TypeScript + Vite
+# Cybio
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Description
+Cybio is an innovative project aimed at revolutionizing the way users interact with bioinformatics data. Designed to streamline workflows, it enables researchers and developers to analyze, visualize, and manage biological information with unprecedented efficiency.
 
-Currently, two official plugins are available:
+## Purpose
+The purpose of Cybio is to facilitate a seamless integration of bioinformatics tools and data sources, empowering users to derive insights from complex datasets quickly and effectively.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
+- **Data Visualization**: Intuitive graphical representations of biological data.
+- **Workflow Automation**: Automate repetitive tasks to save time and reduce errors.
+- **Collaboration Tools**: Share findings and collaborate with team members easily.
+- **Data Integration**: Connect with various bioinformatics databases and tools.
 
-## React Compiler
+## Tech Stack
+- **Frontend**: React, Redux
+- **Backend**: Node.js, Express
+- **Database**: MongoDB
+- **Deployment**: Docker, Kubernetes
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Setup Instructions
+1. **Clone the repository**:  
+   `git clone https://github.com/javex-12/cybio.git`
 
-## Expanding the ESLint configuration
+2. **Navigate to the project directory**:  
+   `cd cybio`
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+3. **Install dependencies**:  
+   `npm install`
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+4. **Run the application**:  
+   `npm start`
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Contribution Guidelines
+We welcome contributions to Cybio! Please follow these guidelines:
+1. Fork the repository and create your branch for any new features or bug fixes.
+2. Ensure any new code is well-documented and tested.
+3. Submit a pull request detailing your changes and why they are necessary.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Thank you for your interest in contributing to Cybio!
